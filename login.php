@@ -24,8 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// ...existing code...
-
     if ($user) {
         // Verify the plain text password
         if ($inputPassword === $user['password']) {
