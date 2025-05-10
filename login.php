@@ -1,49 +1,55 @@
 <?php
-// Database connection
-$host = 'localhost';
-$dbname = 'classroom_reservation';
-$username = 'root';
-$password = '';
+session_start();
+require_once 'db_config.php';
 
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
-
-// Check if form is submitted
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $inputUsername = $_POST['username'];
-    $inputPassword = $_POST['password'];
-
-    // Use prepared statements to prevent SQL injection
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = :username");
-    $stmt->bindParam(':username', $inputUsername, PDO::PARAM_STR);
-    $stmt->execute();
-
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($user) {
-        // Verify the plain text password
-        if ($inputPassword === $user['password']) {
-            // Start session and store user info
-            session_start();
+// Handle login form submission
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+    
+    try {
+        $conn = getDbConnection();
+        
+        $stmt = $conn->prepare("SELECT u.id, u.username, u.password, u.role, u.full_name, 
+                               u.email, u.department_id, d.name as department_name 
+                               FROM users u 
+                               LEFT JOIN departments d ON u.department_id = d.id 
+                               WHERE u.username = :username");
+        $stmt->bindParam(':username', $username);
+        $stmt->execute();
+        
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user && $password === $user['password']) { // In production, use password_verify()
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
+            $_SESSION['full_name'] = $user['full_name'];
             $_SESSION['role'] = $user['role'];
-
-            // Redirect to the main app
+            
+            if ($user['department_id']) {
+                $_SESSION['department_id'] = $user['department_id'];
+                $_SESSION['department_name'] = $user['department_name'];
+                
+                // For department heads, get professor count
+                if ($user['role'] === 'deptHead') {
+                    $stmt = $conn->prepare("SELECT COUNT(*) FROM users WHERE department_id = :dept_id AND role = 'professor'");
+                    $stmt->bindParam(':dept_id', $user['department_id']);
+                    $stmt->execute();
+                    $_SESSION['professor_count'] = $stmt->fetchColumn();
+                }
+            }
+            
             header("Location: app.php");
             exit();
         } else {
-            // Password does not match
-            echo "<script>alert('Invalid username or password'); window.location.href='index.php';</script>";
+            $_SESSION['login_error'] = "Invalid username or password";
+            header("Location: index.php");
+            exit();
         }
-    } else {
-        // User not found
-        echo "<script>alert('Invalid username or password'); window.location.href='index.php';</script>";
+    } catch(PDOException $e) {
+        $_SESSION['login_error'] = "Database error: " . $e->getMessage();
+        header("Location: index.php");
+        exit();
     }
-
 }
 ?>
