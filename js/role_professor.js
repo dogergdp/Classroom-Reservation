@@ -49,6 +49,12 @@ function renderProfessorDepartmentInfo() {
                 <p class="text-black">
                     <span class="font-medium">Department Head:</span> ${state.currentUser.deptHeadName || 'Not assigned'}
                 </p>
+                <p class="text-black mt-2">
+                    <span class="font-medium">Professor ID:</span> ${state.currentUser.id}
+                </p>
+                <p class="text-black">
+                    <span class="font-medium">Professor Name:</span> ${state.currentUser.name}
+                </p>
             </div>
         </div>
     `;
@@ -187,6 +193,9 @@ function renderProfessorAssignedRooms() {
                                 <div>
                                     <p class="font-medium text-black">Room ${assignment.room}</p>
                                     <p class="text-sm text-black mt-1">
+                                        <i class="fas fa-user mr-1"></i> Professor: ${assignment.professorName || state.currentUser.name}
+                                    </p>
+                                    <p class="text-sm text-black mt-1">
                                         ${displayDate} | ${assignment.startTime} to ${assignment.endTime}
                                     </p>
                                     <p class="text-sm text-black">
@@ -254,7 +263,8 @@ function handleSubmitReservation(event) {
         duration: state.duration,
         reason: state.reason,
         course: state.course,
-        section: state.section
+        section: state.section,
+        professorName: state.currentUser.name  // Add professor name to the request
     };
 
     // Display loading indicator
@@ -287,6 +297,9 @@ function handleSubmitReservation(event) {
                 data.reservation.course,
                 data.reservation.section
             );
+            
+            // Add professor name to the reservation
+            newReservation.professorName = state.currentUser.name;
             
             state.reservations.push(newReservation);
             
@@ -390,6 +403,10 @@ function handleProfessorCancelAssignment(assignmentId) {
         const index = state.reservations.findIndex(r => r.id === reservationToUpdate.id);
         state.reservations[index].status = 'denied';
         state.reservations[index].reason = `Canceled by professor ${state.currentUser?.name}: ${state.cancellationReason || 'No reason provided'} (${formatDate(new Date().toISOString())})`;
+        // Ensure professorName is preserved
+        if (!state.reservations[index].professorName) {
+            state.reservations[index].professorName = state.currentUser?.name;
+        }
     }
     
     state.roomAssignments = state.roomAssignments.filter(a => a.id !== assignmentId);

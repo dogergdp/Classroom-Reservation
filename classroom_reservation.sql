@@ -45,7 +45,9 @@ INSERT INTO `users` (`id`, `username`, `password`, `role`, `full_name`, `email`,
 (1, 'admin', 'password123', 'admin', 'System Administrator', 'admin@university.edu', NULL),
 (2, 'deptHead', 'password123', 'deptHead', 'John Smith', 'jsmith@university.edu', 1),
 (3, 'prof', 'password123', 'professor', 'Jane Doe', 'jdoe@university.edu', 1),
-(4, 'student', 'password123', 'student', 'Mark Johnson', 'mjohnson@university.edu', NULL);
+(4, 'student', 'password123', 'student', 'Mark Johnson', 'mjohnson@university.edu', NULL),
+(5, 'profmike', 'password123', 'professor', 'Michael Chen', 'mchen@university.edu', 1),
+(6, 'profalex', 'password123', 'professor', 'Alex Rodriguez', 'arodriguez@university.edu', 1);
 
 --
 -- Table structure for table `departments`
@@ -147,7 +149,7 @@ ALTER TABLE `room_assignments`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `departments`

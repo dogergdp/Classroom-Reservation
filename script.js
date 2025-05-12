@@ -21,6 +21,9 @@ class Reservation {
         this.reason = reason;
         this.course = course;
         this.section = section;
+        
+        // Initialize professorName property (will be set from API data later)
+        this.professorName = null;
     }
 }
 
@@ -196,18 +199,29 @@ function loadReservationsAndAssignments() {
         .then(data => {
             if (data.success) {
                 console.log('Reservations fetched:', data.reservations);
-                state.reservations = data.reservations.map(res => new Reservation(
-                    res.id,
-                    res.professorId,
-                    res.room,
-                    res.date,
-                    res.startTime,
-                    res.duration,
-                    res.status,
-                    res.reason,
-                    res.course,
-                    res.section
-                ));
+                state.reservations = data.reservations.map(res => {
+                    // Create the reservation object
+                    const reservation = new Reservation(
+                        res.id,
+                        res.professorId,
+                        res.room,
+                        res.date,
+                        res.startTime,
+                        res.duration,
+                        res.status,
+                        res.reason,
+                        res.course,
+                        res.section
+                    );
+                    
+                    // Explicitly set professorName from API response
+                    reservation.professorName = res.professorName || 'Unknown Professor';
+                    
+                    // Log the professor name to verify it's set
+                    console.log(`Reservation ${res.id} professor name: ${reservation.professorName}`);
+                    
+                    return reservation;
+                });
                 
                 // Now fetch room assignments
                 return fetch('api/get_room_assignments.php');
@@ -226,17 +240,25 @@ function loadReservationsAndAssignments() {
         .then(data => {
             if (data.success) {
                 console.log('Room assignments fetched:', data.assignments);
-                state.roomAssignments = data.assignments.map(assign => new RoomAssignment(
-                    assign.id,
-                    assign.professorId,
-                    assign.professorName,
-                    assign.room,
-                    assign.date,
-                    assign.startTime,
-                    assign.endTime,
-                    assign.course,
-                    assign.section
-                ));
+                state.roomAssignments = data.assignments.map(assign => {
+                    // Make sure professor name is present in room assignments
+                    const assignment = new RoomAssignment(
+                        assign.id,
+                        assign.professorId,
+                        assign.professorName || 'Unknown Professor',
+                        assign.room,
+                        assign.date,
+                        assign.startTime,
+                        assign.endTime,
+                        assign.course,
+                        assign.section
+                    );
+                    
+                    // Log the professor name to verify it's set
+                    console.log(`Assignment ${assign.id} professor name: ${assignment.professorName}`);
+                    
+                    return assignment;
+                });
             } else {
                 console.error('Error fetching room assignments:', data.error);
                 showNotification('Failed to load room assignments: ' + data.error, 'error');
@@ -372,6 +394,9 @@ function renderAllReservations() {
         
         if (roomReservations.length > 0) {
             roomReservations.forEach(res => {
+                // Debug the professor name
+                console.log(`Rendering reservation ${res.id}, professor: ${res.professorName}`);
+                
                 html += `
                     <div
                         class="text-sm p-3 rounded-md cursor-pointer bg-gray-50 hover:bg-rose-50 transition-colors"
@@ -383,6 +408,9 @@ function renderAllReservations() {
                             </p>
                             ${getStatusBadge(res.status)}
                         </div>
+                        <p class="text-black flex items-center">
+                            <i class="fas fa-user mr-1"></i> <strong>${res.professorName || 'No Name Available'}</strong>
+                        </p>
                         <p class="text-black flex items-center">
                             <i class="fas fa-clock mr-1"></i> ${formatTime(res.startTime)} (${res.duration}hrs)
                         </p>
@@ -455,6 +483,11 @@ function renderReservationModal() {
                         <i class="fas fa-door-open mr-2 text-gray-500"></i>
                         <span class="font-medium text-black">Room:</span> 
                         <span class="ml-2 text-black">${state.viewingReservation.room}</span>
+                    </p>
+                    <p class="flex items-center">
+                        <i class="fas fa-user mr-2 text-gray-500"></i>
+                        <span class="font-medium text-black">Professor:</span> 
+                        <span class="ml-2 text-black">${state.viewingReservation.professorName || 'Unknown Professor'}</span>
                     </p>
                     <p class="flex items-center">
                         <i class="fas fa-calendar-alt mr-2 text-gray-500"></i>
@@ -602,6 +635,23 @@ function confirmApprovalAction() {
         console.log("Processing response data:", data);
         if (data.success) {
             showNotification(`Reservation ${action === 'approve' ? 'approved' : 'denied'} successfully`, 'success');
+            
+            // If we approved and got assignment data back, add it to our state
+            if (action === 'approve' && data.assignment) {
+                const newAssignment = new RoomAssignment(
+                    data.assignment.id,
+                    data.assignment.professorId,
+                    data.assignment.professorName,
+                    data.assignment.room,
+                    data.assignment.date,
+                    data.assignment.startTime,
+                    data.assignment.endTime,
+                    data.assignment.course,
+                    data.assignment.section
+                );
+                
+                state.roomAssignments.push(newAssignment);
+            }
             
             // Close modals first
             state.approvalAction = null;

@@ -36,6 +36,40 @@ foreach ($requiredFields as $field) {
 try {
     $conn = getDbConnection();
     
+    // Check if there's already a reservation or assignment for this room and time
+    $stmt = $conn->prepare("SELECT COUNT(*) FROM reservations 
+                           WHERE room = :room AND reservation_date = :date AND 
+                           ((start_time <= :start_time AND ADDTIME(start_time, SEC_TO_TIME(duration * 3600)) > :start_time) OR
+                           (start_time < ADDTIME(:start_time, SEC_TO_TIME(:duration * 3600)) AND 
+                            ADDTIME(start_time, SEC_TO_TIME(duration * 3600)) >= ADDTIME(:start_time, SEC_TO_TIME(:duration * 3600))) OR
+                           (:start_time <= start_time AND ADDTIME(:start_time, SEC_TO_TIME(:duration * 3600)) > start_time))
+                           AND status = 'approved'");
+    
+    $stmt->bindParam(':room', $data['room']);
+    $stmt->bindParam(':date', $data['date']);
+    $stmt->bindParam(':start_time', $data['startTime']);
+    $stmt->bindParam(':duration', $data['duration']);
+    $stmt->execute();
+    
+    $conflictCount = $stmt->fetchColumn();
+    
+    if ($conflictCount > 0) {
+        echo json_encode(['error' => 'The room is already reserved for this time period']);
+        exit();
+    }
+    
+    // Get professor's department_id
+    $stmt = $conn->prepare("SELECT department_id, full_name FROM users WHERE id = :id");
+    $stmt->execute(['id' => $_SESSION['user_id']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$user || !$user['department_id']) {
+        echo json_encode(['error' => 'Professor not found or not assigned to a department']);
+        exit();
+    }
+    
+    $professorName = $user['full_name'] ?? $_SESSION['username'];
+    
     // Insert the reservation
     $stmt = $conn->prepare("INSERT INTO reservations 
                             (professor_id, department_id, room, reservation_date, start_time, 
@@ -44,7 +78,7 @@ try {
                             :duration, 'pending', :reason, :course, :section)");
                             
     $stmt->bindParam(':professor_id', $_SESSION['user_id']);
-    $stmt->bindParam(':department_id', $_SESSION['department_id']);
+    $stmt->bindParam(':department_id', $user['department_id']);
     $stmt->bindParam(':room', $data['room']);
     $stmt->bindParam(':date', $data['date']);
     $stmt->bindParam(':start_time', $data['startTime']);
@@ -70,7 +104,8 @@ try {
             'status' => 'pending',
             'reason' => $data['reason'],
             'course' => $data['course'],
-            'section' => $data['section']
+            'section' => $data['section'],
+            'professorName' => $professorName
         ]
     ]);
     

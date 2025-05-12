@@ -20,7 +20,7 @@ try {
     if ($role === 'admin') {
         // Admin can see all reservations
         $stmt = $conn->prepare("
-            SELECT r.*, u.full_name AS professor_name 
+            SELECT r.*, u.full_name AS professorName 
             FROM reservations r
             JOIN users u ON r.professor_id = u.id
             ORDER BY r.reservation_date DESC, r.start_time ASC
@@ -28,7 +28,7 @@ try {
     } elseif ($role === 'deptHead') {
         // Department head can see reservations from their department
         $stmt = $conn->prepare("
-            SELECT r.*, u.full_name AS professor_name 
+            SELECT r.*, u.full_name AS professorName 
             FROM reservations r
             JOIN users u ON r.professor_id = u.id
             WHERE r.department_id = :departmentId
@@ -38,7 +38,7 @@ try {
     } elseif ($role === 'professor') {
         // Professor can see their own reservations and other approved reservations
         $stmt = $conn->prepare("
-            SELECT r.*, u.full_name AS professor_name 
+            SELECT r.*, u.full_name AS professorName 
             FROM reservations r
             JOIN users u ON r.professor_id = u.id
             WHERE r.professor_id = :userId OR r.status = 'approved'
@@ -48,7 +48,7 @@ try {
     } else {
         // Students and others can see only approved reservations
         $stmt = $conn->prepare("
-            SELECT r.*, u.full_name AS professor_name 
+            SELECT r.*, u.full_name AS professorName 
             FROM reservations r
             JOIN users u ON r.professor_id = u.id
             WHERE r.status = 'approved'
@@ -65,7 +65,7 @@ try {
         $formattedReservations[] = [
             'id' => $res['id'],
             'professorId' => $res['professor_id'],
-            'professorName' => $res['professor_name'],
+            'professorName' => $res['professorName'],
             'room' => $res['room'],
             'date' => $res['reservation_date'],
             'startTime' => $res['start_time'],

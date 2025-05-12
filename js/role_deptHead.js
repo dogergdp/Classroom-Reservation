@@ -117,15 +117,6 @@ function renderDeptHeadPendingRequests() {
     
     if (pendingReservations.length > 0) {
         pendingReservations.forEach(res => {
-            // Find professor name
-            let professorName = "Unknown Professor";
-            if (departmentProfessors.length > 0) {
-                const professor = departmentProfessors.find(p => p.id == res.professorId);
-                if (professor) {
-                    professorName = professor.full_name || professor.username;
-                }
-            }
-            
             // Ensure date is properly formatted
             const displayDate = formatDate(res.date);
             
@@ -137,7 +128,7 @@ function renderDeptHeadPendingRequests() {
                                 <i class="fas fa-door-open mr-1 text-rose-500"></i> Room ${res.room}
                             </p>
                             <p class="text-sm text-black mt-1 flex items-center">
-                                <i class="fas fa-user mr-1"></i> ${professorName}
+                                <i class="fas fa-user mr-1"></i> ${res.professorName}
                             </p>
                             <p class="text-sm text-black mt-1 flex items-center">
                                 <i class="fas fa-calendar-alt mr-1"></i> ${displayDate} | <i class="fas fa-clock mx-1"></i> ${formatTime(res.startTime)} (${res.duration}hrs)
@@ -399,6 +390,9 @@ function handleApproveDeny(id, status) {
             }
             
             showNotification(`Reservation ${status === 'approved' ? 'approved' : 'denied'} successfully`, 'success');
+            
+            // Refresh data from server to ensure everything is up to date
+            loadReservationsAndAssignments();
         } else {
             showNotification('Error: ' + data.error, 'error');
         }
@@ -406,10 +400,6 @@ function handleApproveDeny(id, status) {
     .catch(error => {
         console.error('Error updating reservation status:', error);
         showNotification('Network error when updating reservation: ' + error.message, 'error');
-    })
-    .finally(() => {
-        // Refresh the page content
-        renderApp();
     });
 }
 
@@ -550,6 +540,9 @@ function handleRoomAssignment(event) {
             
             // Show success message
             showNotification('Room assigned successfully', 'success');
+            
+            // Reload all data to ensure consistency
+            loadReservationsAndAssignments();
         } else {
             showNotification('Error: ' + data.error, 'error');
         }
@@ -562,7 +555,6 @@ function handleRoomAssignment(event) {
         // Reset button
         submitButton.disabled = false;
         submitButton.innerHTML = originalButtonText;
-        renderApp();
     });
 }
 

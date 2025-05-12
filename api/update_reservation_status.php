@@ -49,6 +49,34 @@ try {
     $reason = isset($data['reason']) ? $data['reason'] : null;
     
     if ($status === 'approved') {
+        // Check for conflicting room assignments before approval
+        $startTime = new DateTime($reservation['start_time']);
+        $endTime = clone $startTime;
+        $endTime->add(new DateInterval('PT' . $reservation['duration'] . 'H'));
+        $endTimeString = $endTime->format('H:i:s');
+
+        // Check if there's already an approved reservation for this room and time
+        $conflictCheck = $conn->prepare("
+            SELECT COUNT(*) FROM room_assignments 
+            WHERE room = :room 
+            AND assignment_date = :date 
+            AND (
+                (start_time < :endTime AND end_time > :startTime) OR
+                (start_time = :startTime AND end_time = :endTime)
+            )
+        ");
+        $conflictCheck->bindParam(':room', $reservation['room']);
+        $conflictCheck->bindParam(':date', $reservation['reservation_date']);
+        $conflictCheck->bindParam(':startTime', $reservation['start_time']);
+        $conflictCheck->bindParam(':endTime', $endTimeString);
+        $conflictCheck->execute();
+        
+        if ($conflictCheck->fetchColumn() > 0) {
+            $conn->rollBack();
+            echo json_encode(['success' => false, 'error' => 'Room already assigned for this time slot']);
+            exit;
+        }
+
         $stmt = $conn->prepare("
             UPDATE reservations 
             SET status = 'approved', updated_at = NOW() 

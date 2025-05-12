@@ -132,26 +132,48 @@ function loadReservationsAndAssignments() {
                     r.section
                 ));
                 
-                if (data.assignments && data.assignments.length > 0) {
-                    state.roomAssignments = data.assignments.map(a => new RoomAssignment(
-                        a.id,
-                        a.professor_id,
-                        a.professor_name,
-                        a.room,
-                        a.assignment_date,
-                        a.start_time,
-                        a.end_time,
-                        a.course,
-                        a.section
-                    ));
-                }
+                // Make sure we set the professorName property
+                data.reservations.forEach((r, index) => {
+                    state.reservations[index].professorName = r.professor_name || 'Unknown Professor';
+                });
                 
-                // Re-render the application
-                renderApp();
-                showNotification('Reservations loaded successfully', 'success');
+                // Now fetch room assignments separately to make sure they're up to date
+                return fetch('api/get_room_assignments.php');
             } else {
                 console.error('Error loading data:', data.error);
                 showNotification('Failed to load reservations: ' + data.error, 'error');
+                throw new Error(data.error);
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                console.log('Room assignments loaded:', data.assignments);
+                
+                // Map server data to client models
+                state.roomAssignments = data.assignments.map(a => new RoomAssignment(
+                    a.id,
+                    a.professor_id,
+                    a.professor_name || 'Unknown Professor',
+                    a.room,
+                    a.assignment_date,
+                    a.start_time,
+                    a.end_time,
+                    a.course,
+                    a.section
+                ));
+                
+                // Re-render the application
+                renderApp();
+                showNotification('Data loaded successfully', 'success');
+            } else {
+                console.error('Error loading assignments:', data.error);
+                showNotification('Failed to load room assignments: ' + data.error, 'error');
             }
         })
         .catch(error => {

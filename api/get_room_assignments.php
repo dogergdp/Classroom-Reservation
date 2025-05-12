@@ -18,39 +18,34 @@ try {
     
     // Different queries based on user role
     if ($role === 'admin') {
-        // Admin can see all assignments
+        // Admin can see all room assignments
         $stmt = $conn->prepare("
             SELECT ra.*, u.full_name AS professor_name 
             FROM room_assignments ra
             JOIN users u ON ra.professor_id = u.id
             ORDER BY ra.assignment_date DESC, ra.start_time ASC
         ");
-    } elseif ($role === 'deptHead' && $departmentId) {
-        // Department head can see assignments from their department
+    } elseif ($role === 'deptHead') {
+        // Department head can see assignments for professors in their department
         $stmt = $conn->prepare("
             SELECT ra.*, u.full_name AS professor_name 
             FROM room_assignments ra
             JOIN users u ON ra.professor_id = u.id
-            JOIN users prof ON ra.professor_id = prof.id
-            WHERE prof.department_id = :departmentId
+            WHERE u.department_id = :departmentId
             ORDER BY ra.assignment_date DESC, ra.start_time ASC
         ");
         $stmt->bindParam(':departmentId', $departmentId);
     } else {
-        // Professor and students can see assignments related to the professor
+        // Professors and others see assignments relevant to them
         $stmt = $conn->prepare("
             SELECT ra.*, u.full_name AS professor_name 
             FROM room_assignments ra
             JOIN users u ON ra.professor_id = u.id
-            WHERE ra.professor_id = :userId
-            OR (
-                SELECT COUNT(*) FROM reservations r 
-                WHERE r.room = ra.room AND r.reservation_date = ra.assignment_date 
-                AND r.start_time = ra.start_time AND r.status = 'approved'
-            ) > 0
+            WHERE ra.professor_id = :userId OR u.department_id = :departmentId
             ORDER BY ra.assignment_date DESC, ra.start_time ASC
         ");
         $stmt->bindParam(':userId', $userId);
+        $stmt->bindParam(':departmentId', $departmentId);
     }
     
     $stmt->execute();
@@ -58,23 +53,24 @@ try {
     
     // Format the data for the frontend
     $formattedAssignments = [];
-    foreach ($assignments as $assign) {
+    foreach ($assignments as $asn) {
         $formattedAssignments[] = [
-            'id' => $assign['id'],
-            'professorId' => $assign['professor_id'],
-            'professorName' => $assign['professor_name'],
-            'room' => $assign['room'],
-            'date' => $assign['assignment_date'],
-            'startTime' => $assign['start_time'],
-            'endTime' => $assign['end_time'],
-            'course' => $assign['course'],
-            'section' => $assign['section']
+            'id' => $asn['id'],
+            'reservationId' => $asn['reservation_id'],
+            'professorId' => $asn['professor_id'],
+            'professorName' => $asn['professor_name'],
+            'room' => $asn['room'],
+            'date' => $asn['assignment_date'],
+            'startTime' => $asn['start_time'],
+            'endTime' => $asn['end_time'],
+            'course' => $asn['course'],
+            'section' => $asn['section']
         ];
     }
     
     echo json_encode(['success' => true, 'assignments' => $formattedAssignments]);
 } catch (PDOException $e) {
     error_log('Database error: ' . $e->getMessage());
-    echo json_encode(['success' => false, 'error' => 'Database error occurred']);
+    echo json_encode(['success' => false, 'error' => 'Database error occurred: ' . $e->getMessage()]);
 }
 ?>
