@@ -341,14 +341,19 @@ function renderDeptHeadRoomAssignment() {
 }
 
 function handleApproveDeny(id, status) {
-    const reservationIndex = state.reservations.findIndex(r => r.id === id);
+    console.log('Approve/Deny clicked:', { id, status }); 
+    
+    const reservationIndex = state.reservations.findIndex(r => String(r.id) === String(id));
+    console.log('Reservation index:', reservationIndex); 
     
     if (reservationIndex === -1) return;
+
     
     const updateData = {
         id: id,
         status: status
     };
+     console.log('Sending updateData:', updateData);
     
     // Display loading indicator
     showNotification(`Processing ${status === 'approved' ? 'approval' : 'denial'}...`, 'info');
@@ -572,3 +577,7 @@ function deleteRoomAssignment(id) {
     
     renderApp();
 }
+
+
+window.handleApproveDeny = handleApproveDeny;
+window.denyWithPrompt = denyWithPrompt;

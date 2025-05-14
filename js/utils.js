@@ -102,7 +102,7 @@ function createRoomAssignmentFromReservation(reservation) {
     );
 }
 
-// Function to load reservations and assignments from the server
+/* Function to load reservations and assignments from the server
 function loadReservationsAndAssignments() {
     // Show loading indicator
     showNotification('Loading reservations...', 'info');
@@ -181,6 +181,7 @@ function loadReservationsAndAssignments() {
             showNotification('Network error when loading reservations', 'error');
         });
 }
+        */
 
 // Add CSS for notifications
 document.addEventListener('DOMContentLoaded', function() {
@@ -264,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(container);
     
     // Load data when utils script is loaded
-    loadReservationsAndAssignments();
+    //loadReservationsAndAssignments();
 });
 
 function setupEventListeners() {

@@ -115,12 +115,16 @@ function loadRoleScript(role) {
     scriptElement.src = `js/role_${role.toLowerCase()}.js`;
     scriptElement.onload = function() {
         console.log(`Role script loaded for ${role}`);
-        // After role-specific script is loaded, load common utils then render the app
         const utilsScript = document.createElement('script');
         utilsScript.src = 'js/utils.js';
         utilsScript.onload = function() {
             console.log('Utils script loaded');
-            // Fetch reservations and assignments before rendering
+            console.log('About to call loadReservationsAndAssignments()...');
+            
+            // Log the function reference itself
+            console.log('Type of loadReservationsAndAssignments:', typeof loadReservationsAndAssignments);
+            console.log('loadReservationsAndAssignments function body:', loadReservationsAndAssignments.toString().substring(0, 200) + "..."); // Log first 200 chars of its body
+
             loadReservationsAndAssignments();
         };
         document.body.appendChild(utilsScript);
@@ -143,6 +147,7 @@ function handleLogout() {
         .then(() => {
             state.currentUser = null;
             window.location.href = 'index.php';
+            console.log("User logged out and redirected to login page.");
         });
 }
 
@@ -180,98 +185,98 @@ function renderApp() {
 
 // Function to load reservations and room assignments from the database
 function loadReservationsAndAssignments() {
-    console.log('Fetching reservations and room assignments...');
+    console.log('[SCRIPT.JS] Fetching reservations and room assignments...'); // Identify this version
     
-    // Show loading state
     const appContainer = document.getElementById('app-container');
     if (appContainer) {
         appContainer.innerHTML = '<p class="text-center py-10"><i class="fas fa-spinner fa-spin"></i> Loading data...</p>';
     }
     
-    // Fetch reservations
-    fetch('api/get_reservations.php')
+    const cacheBuster = `?t=${new Date().getTime()}`;
+
+    // Promise for reservations
+    const reservationsPromise = fetch(`api/get_reservations.php${cacheBuster}`)
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+                throw new Error(`HTTP error! Status: ${response.status} from get_reservations.php`);
             }
             return response.json();
         })
         .then(data => {
-            if (data.success) {
-                console.log('Reservations fetched:', data.reservations);
-                state.reservations = data.reservations.map(res => {
-                    // Create the reservation object
+            console.log('[SCRIPT.JS DEBUG] Raw API response from get_reservations.php:', JSON.stringify(data, null, 2));
+            if (data.success && data.reservations) {
+                state.reservations = data.reservations.map(apiRes => {
+                    console.log('[SCRIPT.JS DEBUG] API reservation item (apiRes) before mapping:', JSON.stringify(apiRes, null, 2));
                     const reservation = new Reservation(
-                        res.id,
-                        res.professorId,
-                        res.room,
-                        res.date,
-                        res.startTime,
-                        res.duration,
-                        res.status,
-                        res.reason,
-                        res.course,
-                        res.section
+                        apiRes.id,
+                        apiRes.professorId,      // Ensure this is in API response
+                        apiRes.room,
+                        apiRes.date,             // Ensure this is in API response
+                        apiRes.startTime,        // Ensure this is in API response
+                        apiRes.duration,
+                        apiRes.status,
+                        apiRes.reason,
+                        apiRes.course,
+                        apiRes.section
                     );
-                    
-                    // Explicitly set professorName from API response
-                    reservation.professorName = res.professorName || 'Unknown Professor';
-                    
-                    // Log the professor name to verify it's set
-                    console.log(`Reservation ${res.id} professor name: ${reservation.professorName}`);
-                    
+                    reservation.professorName = apiRes.professorName || 'Unknown Professor'; // Ensure this is in API response
+                    console.log(`[SCRIPT.JS DEBUG] Constructed Reservation object for ID ${apiRes.id}:`, JSON.stringify(reservation, null, 2));
                     return reservation;
                 });
-                
-                // Now fetch room assignments
-                return fetch('api/get_room_assignments.php');
+                console.log('[SCRIPT.JS DEBUG] Final state.reservations after mapping:', JSON.stringify(state.reservations, null, 2));
             } else {
-                console.error('Error fetching reservations:', data.error);
-                showNotification('Failed to load reservations: ' + data.error, 'error');
-                throw new Error(data.error);
+                const errorMsg = `Error fetching reservations: ${data.error || 'Unknown API error from get_reservations.php'}`;
+                console.error(errorMsg);
+                showNotification(errorMsg, 'error');
+                // Optionally re-throw or handle differently if one part fails
             }
-        })
+        });
+
+    // Promise for room assignments
+    const assignmentsPromise = fetch(`api/get_room_assignments.php${cacheBuster}`)
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+                throw new Error(`HTTP error! Status: ${response.status} from get_room_assignments.php`);
             }
             return response.json();
         })
         .then(data => {
-            if (data.success) {
-                console.log('Room assignments fetched:', data.assignments);
-                state.roomAssignments = data.assignments.map(assign => {
-                    // Make sure professor name is present in room assignments
+            console.log('[SCRIPT.JS DEBUG] Raw API response from get_room_assignments.php:', JSON.stringify(data, null, 2));
+            if (data.success && data.assignments) {
+                state.roomAssignments = data.assignments.map(apiAssign => {
+                    console.log('[SCRIPT.JS DEBUG] API assignment item (apiAssign) before mapping:', JSON.stringify(apiAssign, null, 2));
                     const assignment = new RoomAssignment(
-                        assign.id,
-                        assign.professorId,
-                        assign.professorName || 'Unknown Professor',
-                        assign.room,
-                        assign.date,
-                        assign.startTime,
-                        assign.endTime,
-                        assign.course,
-                        assign.section
+                        apiAssign.id,
+                        apiAssign.professorId,       // Ensure this is in API response
+                        apiAssign.professorName || 'Unknown Professor', // Ensure this is in API response
+                        apiAssign.room,
+                        apiAssign.date,              // Ensure this is in API response
+                        apiAssign.startTime,         // Ensure this is in API response
+                        apiAssign.endTime,           // Ensure this is in API response
+                        apiAssign.course,
+                        apiAssign.section
                     );
-                    
-                    // Log the professor name to verify it's set
-                    console.log(`Assignment ${assign.id} professor name: ${assignment.professorName}`);
-                    
+                    console.log(`[SCRIPT.JS DEBUG] Constructed RoomAssignment object for ID ${apiAssign.id}:`, JSON.stringify(assignment, null, 2));
                     return assignment;
                 });
+                console.log('[SCRIPT.JS DEBUG] Final state.roomAssignments after mapping:', JSON.stringify(state.roomAssignments, null, 2));
             } else {
-                console.error('Error fetching room assignments:', data.error);
-                showNotification('Failed to load room assignments: ' + data.error, 'error');
-                throw new Error(data.error);
+                const errorMsg = `Error fetching room assignments: ${data.error || 'Unknown API error from get_room_assignments.php'}`;
+                console.error(errorMsg);
+                showNotification(errorMsg, 'error');
             }
-        })
+        });
+
+    // Wait for both promises to complete
+    Promise.all([reservationsPromise, assignmentsPromise])
         .catch(error => {
-            console.error('Network error when fetching data:', error);
-            showNotification('Network error when loading data', 'error');
+            // This will catch errors from the fetch calls or the .then blocks above them
+            console.error('[SCRIPT.JS] Network or processing error in loadReservationsAndAssignments:', error);
+            showNotification(`Error loading data: ${error.message}`, 'error');
         })
         .finally(() => {
-            // Render the app after all data is loaded
-            renderApp();
+            console.log('[SCRIPT.JS] Both fetches complete (or failed). Rendering app.');
+            renderApp(); // Render the app after all data is fetched (or attempted)
         });
 }
 
@@ -487,7 +492,7 @@ function renderReservationModal() {
                     <p class="flex items-center">
                         <i class="fas fa-user mr-2 text-gray-500"></i>
                         <span class="font-medium text-black">Professor:</span> 
-                        <span class="ml-2 text-black">${state.viewingReservation.professorName || 'Unknown Professor'}</span>
+                        <span class="ml-2 text-black">${state.viewingReservation.professorName || 'Unknownnn Professor'}</span>
                     </p>
                     <p class="flex items-center">
                         <i class="fas fa-calendar-alt mr-2 text-gray-500"></i>
@@ -671,7 +676,9 @@ function confirmApprovalAction() {
 }
 
 function viewReservation(id) {
-    state.viewingReservation = state.reservations.find(r => r.id === id);
+    const found = state.reservations.find(r => String(r.id) === String(id));
+    console.log('viewReservation: looking for id', id, 'found:', found);
+    state.viewingReservation = found;
     renderApp();
 }
 
