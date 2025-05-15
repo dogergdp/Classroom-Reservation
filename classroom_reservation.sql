@@ -34,20 +34,24 @@ CREATE TABLE `users` (
   `role` enum('professor','deptHead','admin','student') NOT NULL,
   `full_name` varchar(100) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `department_id` int(11) DEFAULT NULL
+  `department_id` int(11) DEFAULT NULL,
+  `course` varchar(50) DEFAULT NULL,
+  `section` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `username`, `password`, `role`, `full_name`, `email`, `department_id`) VALUES
-(1, 'admin', 'password123', 'admin', 'System Administrator', 'admin@university.edu', NULL),
-(2, 'deptHead', 'password123', 'deptHead', 'John Smith', 'jsmith@university.edu', 1),
-(3, 'prof', 'password123', 'professor', 'Jane Doe', 'jdoe@university.edu', 1),
-(4, 'student', 'password123', 'student', 'Mark Johnson', 'mjohnson@university.edu', NULL),
-(5, 'profmike', 'password123', 'professor', 'Michael Chen', 'mchen@university.edu', 1),
-(6, 'profalex', 'password123', 'professor', 'Alex Rodriguez', 'arodriguez@university.edu', 1);
+INSERT INTO `users` (`id`, `username`, `password`, `role`, `full_name`, `email`, `department_id`, `course`, `section`) VALUES
+(1, 'admin', 'password123', 'admin', 'System Administrator', 'admin@university.edu', NULL, NULL, NULL),
+(2, 'deptHead', 'password123', 'deptHead', 'John Smith', 'jsmith@university.edu', 1, NULL, NULL),
+(3, 'prof', 'password123', 'professor', 'Jane Doe', 'jdoe@university.edu', 1, NULL, NULL),
+(4, 'student', 'password123', 'student', 'Mark Johnson', 'mjohnson@university.edu', 1, 'BSCS', '2A'),
+(5, 'profmike', 'password123', 'professor', 'Michael Chen', 'mchen@university.edu', 1, NULL, NULL),
+(6, 'profalex', 'password123', 'professor', 'Alex Rodriguez', 'arodriguez@university.edu', 1, NULL, NULL),
+(7, 'emma', 'password123', 'student', 'Emma Williams', 'ewilliams@university.edu', 1, 'BSIT', '3B'),
+(8, 'david', 'password123', 'student', 'David Lee', 'dlee@university.edu', 1, 'BSIS', '1A');
 
 --
 -- Table structure for table `departments`
@@ -149,7 +153,7 @@ ALTER TABLE `room_assignments`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `departments`
