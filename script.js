@@ -479,17 +479,23 @@ function formatTime(timeStr) {
 function formatTimeRange(startTime, duration) {
     // Parse start time
     const [startHour, startMinute] = startTime.split(':').map(Number);
-    const startDate = new Date();
-    startDate.setHours(startHour, startMinute, 0, 0);
-    
+    // Use a fixed date to avoid day wrap issues
+    const baseDate = new Date(2000, 0, 1, startHour, startMinute, 0, 0);
+
     // Calculate end time
-    const endDate = new Date(startDate);
-    endDate.setHours(startDate.getHours() + duration);
-    
+    const endDate = new Date(baseDate.getTime());
+    endDate.setHours(endDate.getHours() + Number(duration));
+
     // Format both times
-    const start = formatTime(startTime);
-    const end = `${endDate.getHours() % 12 || 12}:${String(endDate.getMinutes()).padStart(2, '0')} ${endDate.getHours() >= 12 ? 'PM' : 'AM'}`;
-    
+    const start = formatTime(
+        String(baseDate.getHours()).padStart(2, '0') + ':' +
+        String(baseDate.getMinutes()).padStart(2, '0')
+    );
+    const end = formatTime(
+        String(endDate.getHours()).padStart(2, '0') + ':' +
+        String(endDate.getMinutes()).padStart(2, '0')
+    );
+
     return `${start} - ${end}`;
 }
 
@@ -641,12 +647,9 @@ function renderAllReservations() {
                                             const endHour = endTimeObj.getHours();
                                             const endMinute = endTimeObj.getMinutes();
                                             
-                                            // If ending exactly on the hour boundary (e.g., 10:00), exclude the end hour
-                                            // Otherwise include it for partial hours (e.g., 10:30)
-                                            const includeEndHour = endMinute > 0;
-                                            
-                                            // Check if current hour falls within the reservation's time span
-                                            return hour >= startHour && (hour < endHour || (hour === endHour && includeEndHour));
+                                            // Always include the last hour cell for the reservation
+                                            // So for 8am-10am (2 hours), highlight 8, 9, and 10
+                                            return hour >= startHour && hour <= endHour;
                                         });
                                         
                                         if (hourReservations.length === 0) {
