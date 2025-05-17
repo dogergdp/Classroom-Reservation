@@ -67,7 +67,10 @@ let state = {
     searchQuery: '',
     approvalAction: null, // 'approve' or 'deny'
     approvalReservationId: null,
-    denialReason: ''
+    denialReason: '',
+    // Calendar view properties
+    calendarDate: null,  // Reference date for the calendar view
+    selectedRoomTab: 'all'  // Selected room tab for filtering
 };
 
 // Constants for all roles
@@ -76,6 +79,153 @@ const courses = ['BSCS', 'BSIT', 'BSIS'];
 const sections = ['1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B'];
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Add calendar styles
+    const calendarStyles = document.createElement('style');
+    calendarStyles.textContent = `
+        .calendar-container {
+            max-width: 100%;
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        
+        .calendar-table th, .calendar-table td {
+            border: 1px solid #e5e7eb;
+        }
+        
+        .hour-column {
+            width: 80px;
+            min-width: 80px;
+        }
+        
+        .date-column {
+            width: 14%;
+        }
+        
+        .date-header {
+            padding: 8px;
+            text-align: center;
+            background-color: #f9fafb;
+        }
+        
+        .day-name {
+            font-weight: bold;
+            color: #6b7280;
+        }
+        
+        .day-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #111827;
+        }
+        
+        .today .date-header {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        
+        .hour-cell {
+            padding: 4px 8px;
+            text-align: right;
+            font-size: 0.8rem;
+            color: #4b5563;
+            background-color: #f9fafb;
+            height: 60px;
+        }
+        
+        .time-cell {
+            height: 60px;
+            position: relative;
+            vertical-align: top;
+            padding: 0;
+        }
+        
+        .reservation-block {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 4px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+        
+        .reservation-block:hover {
+            filter: brightness(1.1);
+            z-index: 10;
+        }
+        
+        .res-title {
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.8rem;
+        }
+        
+        .res-details {
+            font-size: 0.7rem;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .status-approved {
+            background-color: rgba(52, 211, 153, 0.2);
+            border: 1px solid #34d399;
+            color: #065f46;
+        }
+        
+        .status-pending {
+            background-color: rgba(251, 191, 36, 0.2);
+            border: 1px solid #fbbf24;
+            color: #92400e;
+        }
+        
+        .status-denied {
+            background-color: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        .res-start {
+            border-top-width: 2px;
+        }
+        
+        .res-middle {
+            border-top: 1px dashed rgba(0,0,0,0.1);
+        }
+        
+        .res-end {
+            border-bottom-width: 2px;
+        }
+        
+        .room-tabs {
+            margin-bottom: 15px;
+        }
+        
+        /* Tooltip for reservations */
+        .reservation-tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            z-index: 20;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+    `;
+    document.head.appendChild(calendarStyles);
+
     const appContainer = document.getElementById('app-container');
     appContainer.innerHTML = '<p class="text-center py-10"><i class="fas fa-spinner fa-spin"></i> Loading...</p>'; 
 
@@ -325,6 +475,24 @@ function formatTime(timeStr) {
     return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
 
+// Add a helper function to format time ranges
+function formatTimeRange(startTime, duration) {
+    // Parse start time
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(startHour, startMinute, 0, 0);
+    
+    // Calculate end time
+    const endDate = new Date(startDate);
+    endDate.setHours(startDate.getHours() + duration);
+    
+    // Format both times
+    const start = formatTime(startTime);
+    const end = `${endDate.getHours() % 12 || 12}:${String(endDate.getMinutes()).padStart(2, '0')} ${endDate.getHours() >= 12 ? 'PM' : 'AM'}`;
+    
+    return `${start} - ${end}`;
+}
+
 function getRoleIcon(role) {
     switch (role) {
         case 'professor': return '<i class="fas fa-chalkboard-teacher text-rose-600"></i>';
@@ -375,82 +543,254 @@ function renderUserHeader() {
 }
 
 function renderAllReservations() {
+    // Get the current week's dates for display - use calendarDate if set, otherwise use today
+    const today = new Date();
+    const referenceDate = state.calendarDate || today;
+    const weekDates = getWeekDates(referenceDate);
+    
+    // Hours to display (7am to 8pm)
+    const hours = Array.from({ length: 14 }, (_, i) => i + 7);
+    
     let html = `
         <div class="card">
-            <h2 class="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b flex items-center">
-                <i class="fas fa-history mr-2 text-rose-600"></i>
-                ${state.currentUser.role === 'student' ? 'Available Classrooms' : 'All Reservations'}
-            </h2>
-            <div class="grid md-grid-cols-2 lg-grid-cols-3 gap-5">
-    `;
-    
-    rooms.forEach(room => {
-        const roomReservations = state.reservations.filter(r => 
-            r.room === room && (state.currentUser.role === 'student' ? r.status === 'approved' : true)
-        );
-        
-        html += `
-            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all">
-                <h3 class="font-medium mb-3 pb-2 border-b flex items-center text-rose-700">
-                    <i class="fas fa-door-open mr-2"></i> Room ${room}
-                </h3>
-                <div class="space-y-2">
-        `;
-        
-        if (roomReservations.length > 0) {
-            roomReservations.forEach(res => {
-                // Debug the professor name
-                console.log(`Rendering reservation ${res.id}, professor: ${res.professorName}`);
-                
-                html += `
-                    <div
-                        class="text-sm p-3 rounded-md cursor-pointer bg-gray-50 hover:bg-rose-50 transition-colors"
-                        onclick="viewReservation('${res.id}')"
-                    >
-                        <div class="flex justify-between items-center mb-1">
-                            <p class="font-medium flex items-center">
-                                <i class="fas fa-calendar-alt mr-1"></i> ${formatDate(res.date)}
-                            </p>
-                            ${getStatusBadge(res.status)}
-                        </div>
-                        <p class="text-black flex items-center">
-                            <i class="fas fa-user mr-1"></i> <strong>${res.professorName || 'No Name Available'}</strong>
-                        </p>
-                        <p class="text-black flex items-center">
-                            <i class="fas fa-clock mr-1"></i> ${formatTime(res.startTime)} (${res.duration}hrs)
-                        </p>
-                        <p class="text-black flex items-center mt-1">
-                            <i class="fas fa-chalkboard-teacher mr-1"></i> ${res.course} - ${res.section}
-                        </p>
-                        ${res.status === 'denied' && res.reason ? `
-                            <p class="text-xs text-red-600 mt-1 italic">
-                                ${res.reason.length > 40 ? res.reason.substring(0, 40) + '...' : res.reason}
-                            </p>
-                        ` : ''}
-                    </div>
-                `;
-            });
-        } else {
-            html += `
-                <div class="text-black text-sm p-4 text-center border border-dashed border-gray-200 rounded-md">
-                    No reservations
+            <h2 class="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b flex items-center justify-between">
+                <div>
+                    <i class="fas fa-history mr-2 text-rose-600"></i>
+                    ${state.currentUser.role === 'student' ? 'Available Classrooms' : 'All Reservations'}
                 </div>
-            `;
-        }
-        
-        html += `
+                <div class="flex items-center">
+                    <button onclick="previousWeek()" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded mr-2">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="week-display" class="text-sm font-medium">
+                        ${formatDate(weekDates[0])} - ${formatDate(weekDates[6])}
+                    </span>
+                    <button onclick="nextWeek()" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded ml-2">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button onclick="resetToCurrentWeek()" class="ml-4 px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded text-sm">
+                        Today
+                    </button>
+                </div>
+            </h2>
+            
+            <div class="room-tabs mb-4">
+                <div class="flex space-x-2 overflow-x-auto pb-2">
+                    ${rooms.map(room => `
+                        <button 
+                            onclick="selectRoom('${room}')" 
+                            class="px-4 py-2 rounded-md whitespace-nowrap ${state.selectedRoomTab === room ? 'bg-rose-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}"
+                        >
+                            Room ${room}
+                        </button>
+                    `).join('')}
+                    <button 
+                        onclick="selectRoom('all')" 
+                        class="px-4 py-2 rounded-md whitespace-nowrap ${state.selectedRoomTab === 'all' || !state.selectedRoomTab ? 'bg-rose-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}"
+                    >
+                        All Rooms
+                    </button>
                 </div>
             </div>
-        `;
-    });
-    
-    html += `
+            
+            <div class="calendar-container overflow-x-auto">
+                <table class="calendar-table">
+                    <thead>
+                        <tr>
+                            <th class="hour-column"></th>
+                            ${weekDates.map(date => `
+                                <th class="date-column ${isSameDay(date, today) ? 'today' : ''}">
+                                    <div class="date-header">
+                                        <div class="day-name">${new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                                        <div class="day-number">${new Date(date).getDate()}</div>
+                                    </div>
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${hours.map(hour => {
+                            const hourStr = `${hour % 12 || 12}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
+                            return `
+                                <tr>
+                                    <td class="hour-cell">${hourStr}</td>
+                                    ${weekDates.map(date => {
+                                        const formattedDate = formatDateForComparison(date);
+                                        // Get all reservations for this hour and date
+                                        const hourReservations = state.reservations.filter(r => {
+                                            // Skip if filtering by room and this isn't the selected room
+                                            if (state.selectedRoomTab && state.selectedRoomTab !== 'all' && r.room !== state.selectedRoomTab) {
+                                                return false;
+                                            }
+                                            // For students, only show approved reservations
+                                            if (state.currentUser.role === 'student' && r.status !== 'approved') {
+                                                return false;
+                                            }
+                                            const resDate = formatDateForComparison(r.date);
+                                            if (resDate !== formattedDate) return false;
+                                            
+                                            // Calculate start and end hours properly
+                                            const [startHour, startMinute] = r.startTime.split(':').map(Number);
+                                            const durationInHours = parseInt(r.duration);
+                                            
+                                            // Calculate end time components
+                                            const endTimeObj = new Date();
+                                            endTimeObj.setHours(startHour, startMinute, 0);
+                                            endTimeObj.setHours(endTimeObj.getHours() + durationInHours);
+                                            
+                                            const endHour = endTimeObj.getHours();
+                                            const endMinute = endTimeObj.getMinutes();
+                                            
+                                            // If ending exactly on the hour boundary (e.g., 10:00), exclude the end hour
+                                            // Otherwise include it for partial hours (e.g., 10:30)
+                                            const includeEndHour = endMinute > 0;
+                                            
+                                            // Check if current hour falls within the reservation's time span
+                                            return hour >= startHour && (hour < endHour || (hour === endHour && includeEndHour));
+                                        });
+                                        
+                                        if (hourReservations.length === 0) {
+                                            return `<td class="time-cell"></td>`;
+                                        } else {
+                                            return `
+                                                <td class="time-cell">
+                                                    ${hourReservations.map(res => {
+                                                        const [startHour, startMinute] = res.startTime.split(':').map(Number);
+                                                        const endHour = startHour + parseInt(res.duration);
+                                                        
+                                                        // Determine cell position (start, middle, end)
+                                                        const isStartHour = hour === startHour;
+                                                        const isEndHour = hour === endHour - 1;  // Last hour of reservation
+                                                        const isMiddleHour = !isStartHour && !isEndHour;
+                                                        
+                                                        // Build class for cell position
+                                                        const positionClass = isStartHour ? 'res-start' : 
+                                                                             (isEndHour ? 'res-end' : 'res-middle');
+                                                        
+                                                        const statusClass = getStatusClass(res.status);
+                                                        
+                                                        // Full time range for display
+                                                        const timeRange = formatTimeRange(res.startTime, res.duration);
+                                                        
+                                                        return `
+                                                            <div class="reservation-block ${statusClass} ${positionClass}" 
+                                                                 onclick="viewReservation('${res.id}')"
+                                                                 title="${res.course} - ${res.section} | ${timeRange}">
+                                                                ${isStartHour ? `
+                                                                    <div class="res-title">Room ${res.room} - ${res.course}</div>
+                                                                    <div class="res-details">
+                                                                        <span>${timeRange}</span>
+                                                                        <span>${res.professorName || 'Unknown'}</span>
+                                                                    </div>
+                                                                ` : ''}
+                                                            </div>
+                                                        `;
+                                                    }).join('')}
+                                                </td>
+                                            `;
+                                        }
+                                    }).join('')}
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 flex justify-end">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
+                        <span class="text-sm">Approved</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-yellow-400 rounded-full mr-1"></div>
+                        <span class="text-sm">Pending</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 bg-red-500 rounded-full mr-1"></div>
+                        <span class="text-sm">Denied</span>
+                    </div>
+                </div>
             </div>
         </div>
     `;
     
     return html;
 }
+
+// Calendar helper functions
+function getWeekDates(date) {
+    const currentDate = new Date(date);
+    const day = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const diff = currentDate.getDate() - day; // Adjust to get Sunday
+    
+    return Array(7).fill().map((_, i) => {
+        const newDate = new Date(currentDate);
+        newDate.setDate(diff + i);
+        return newDate;
+    });
+}
+
+function isSameDay(date1, date2) {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    return d1.getFullYear() === d2.getFullYear() && 
+           d1.getMonth() === d2.getMonth() && 
+           d1.getDate() === d2.getDate();
+}
+
+function formatDateForComparison(date) {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getStatusClass(status) {
+    switch (status) {
+        case 'approved': return 'status-approved';
+        case 'denied': return 'status-denied';
+        case 'pending': return 'status-pending';
+        default: return '';
+    }
+}
+
+function previousWeek() {
+    if (!state.calendarDate) {
+        state.calendarDate = new Date();
+    }
+    state.calendarDate.setDate(state.calendarDate.getDate() - 7);
+    renderApp();
+}
+
+function nextWeek() {
+    if (!state.calendarDate) {
+        state.calendarDate = new Date();
+    }
+    state.calendarDate.setDate(state.calendarDate.getDate() + 7);
+    renderApp();
+}
+
+function resetToCurrentWeek() {
+    state.calendarDate = new Date();
+    renderApp();
+}
+
+function selectRoom(room) {
+    state.selectedRoomTab = room;
+    renderApp();
+}
+
+// Make calendar functions accessible from HTML
+window.previousWeek = previousWeek;
+window.nextWeek = nextWeek;
+window.resetToCurrentWeek = resetToCurrentWeek;
+window.selectRoom = selectRoom;
+window.viewReservation = viewReservation;
+window.closeReservationModal = closeReservationModal;
+window.showApprovalConfirmation = showApprovalConfirmation;
+window.showDenialConfirmation = showDenialConfirmation;
+window.cancelApprovalAction = cancelApprovalAction;
+window.confirmApprovalAction = confirmApprovalAction;
 
 function renderReservationModal() {
     if (!state.viewingReservation) return '';
@@ -492,7 +832,7 @@ function renderReservationModal() {
                     <p class="flex items-center">
                         <i class="fas fa-user mr-2 text-gray-500"></i>
                         <span class="font-medium text-black">Professor:</span> 
-                        <span class="ml-2 text-black">${state.viewingReservation.professorName || 'Unknownnn Professor'}</span>
+                        <span class="ml-2 text-black">${state.viewingReservation.professorName || 'Unknown Professor'}</span>
                     </p>
                     <p class="flex items-center">
                         <i class="fas fa-calendar-alt mr-2 text-gray-500"></i>
