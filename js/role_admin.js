@@ -3,6 +3,102 @@ function renderRoleSpecificContent() {
     return renderAdminDashboard();
 }
 
+function setupRoleEventListeners() {
+    console.log("Setting up admin role event listeners");
+
+    // Only fetch users if we're on the users tab and haven't loaded users yet
+    if (state.activeTab === 'users' && (!state.users || state.users.length === 0)) {
+        fetchUsers();
+    }
+
+    // Initialize users array if it doesn't exist in the state
+    if (!state.users) {
+        state.users = [];
+    }
+
+    // Set up tab event handlers for dynamic content
+    const tabs = document.querySelectorAll('.tab');
+    if (tabs) {
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+                if (tabName === 'users' && (!state.users || state.users.length === 0)) {
+                    fetchUsers();
+                }
+            });
+        });
+    }
+}
+
+function fetchUsers() {
+    console.log("Fetching users from server...");
+
+    // Set loading state
+    state.isLoadingUsers = true;
+
+    // Show loading state only if on users tab
+    if (state.activeTab === 'users') {
+        const usersTableBody = document.getElementById('users-table-body');
+        if (usersTableBody) {
+            usersTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading users...</td></tr>';
+        }
+    }
+
+    // Add a timestamp to prevent caching
+    const timestamp = new Date().getTime();
+
+    fetch(`api/get_users.php?t=${timestamp}`)
+        .then(response => {
+            console.log("API Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("API Response data:", data);
+            state.isLoadingUsers = false;
+            if (data.success) {
+                // Store users in state
+                state.users = data.users;
+                console.log("Users loaded:", state.users.length);
+
+                // Only re-render if still on users tab
+                if (state.activeTab === 'users') {
+                    renderApp();
+                }
+            } else {
+                console.error('Error fetching users:', data.error);
+                showNotification('Failed to load users: ' + data.error, 'error');
+
+                // Update the table with the error only if on users tab
+                if (state.activeTab === 'users') {
+                    const usersTableBody = document.getElementById('users-table-body');
+                    if (usersTableBody) {
+                        usersTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-red-500 py-4">
+                            <i class="fas fa-exclamation-circle mr-2"></i> Failed to load users: ${data.error}
+                        </td></tr>`;
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            state.isLoadingUsers = false;
+            console.error('Network error when fetching users:', error);
+            showNotification('Network error when loading users', 'error');
+
+            // Update the table with the error only if on users tab
+            if (state.activeTab === 'users') {
+                const usersTableBody = document.getElementById('users-table-body');
+                if (usersTableBody) {
+                    usersTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-red-500 py-4">
+                        <i class="fas fa-exclamation-circle mr-2"></i> Failed to load users: ${error.message}
+                    </td></tr>`;
+                }
+            }
+        });
+}
+
 function renderAdminDashboard() {
     let html = `
         <div class="card">
@@ -12,16 +108,16 @@ function renderAdminDashboard() {
 
             <!-- Tabs -->
             <div class="tabs">
-                <div class="tab ${state.activeTab === 'overview' ? 'active' : ''}" onclick="setActiveTab('overview')">
+                <div class="tab ${state.activeTab === 'overview' ? 'active' : ''}" onclick="setActiveTab('overview')" data-tab="overview">
                     <i class="fas fa-chart-pie mr-1"></i> Overview
                 </div>
-                <div class="tab ${state.activeTab === 'users' ? 'active' : ''}" onclick="setActiveTab('users')">
+                <div class="tab ${state.activeTab === 'users' ? 'active' : ''}" onclick="setActiveTab('users')" data-tab="users">
                     <i class="fas fa-users mr-1"></i> Users
                 </div>
-                <div class="tab ${state.activeTab === 'reservations' ? 'active' : ''}" onclick="setActiveTab('reservations')">
+                <div class="tab ${state.activeTab === 'reservations' ? 'active' : ''}" onclick="setActiveTab('reservations')" data-tab="reservations">
                     <i class="fas fa-calendar-check mr-1"></i> Reservations
                 </div>
-                <div class="tab ${state.activeTab === 'rooms' ? 'active' : ''}" onclick="setActiveTab('rooms')">
+                <div class="tab ${state.activeTab === 'rooms' ? 'active' : ''}" onclick="setActiveTab('rooms')" data-tab="rooms">
                     <i class="fas fa-door-open mr-1"></i> Room Assignments
                 </div>
             </div>
@@ -29,8 +125,15 @@ function renderAdminDashboard() {
     
     // Content based on active tab
     if (state.activeTab === 'overview') {
-        // Need to fetch user counts from server in a real implementation
-        const userCounts = { total: 0, professors: 0, students: 0 };
+        // Calculate user counts if users are available
+        const userCounts = { 
+            total: state.users ? state.users.length : 0, 
+            professors: state.users ? state.users.filter(u => u.role === 'professor').length : 0,
+            students: state.users ? state.users.filter(u => u.role === 'student').length : 0,
+            deptHeads: state.users ? state.users.filter(u => u.role === 'deptHead').length : 0,
+            admins: state.users ? state.users.filter(u => u.role === 'admin').length : 0
+        };
+        
         const pendingCount = state.reservations.filter(r => r.status === 'pending').length;
         const approvedCount = state.reservations.filter(r => r.status === 'approved').length;
         const deniedCount = state.reservations.filter(r => r.status === 'denied').length;
@@ -41,7 +144,9 @@ function renderAdminDashboard() {
                     <h3 class="text-lg font-medium text-blue-800 mb-2">User Statistics</h3>
                     <p class="text-blue-700">Total Users: <span class="font-bold">${userCounts.total}</span></p>
                     <p class="text-blue-700">Professors: <span class="font-bold">${userCounts.professors}</span></p>
+                    <p class="text-blue-700">Department Heads: <span class="font-bold">${userCounts.deptHeads}</span></p>
                     <p class="text-blue-700">Students: <span class="font-bold">${userCounts.students}</span></p>
+                    <p class="text-blue-700">Administrators: <span class="font-bold">${userCounts.admins}</span></p>
                 </div>
                 <div class="bg-green-50 p-4 rounded-lg border border-green-100">
                     <h3 class="text-lg font-medium text-green-800 mb-2">Reservation Statistics</h3>
@@ -57,21 +162,107 @@ function renderAdminDashboard() {
             </div>
         `;
     } else if (state.activeTab === 'users') {
+        // Add a refresh button and search box
+        html += `
+            <div class="mb-4 flex justify-between items-center">
+                <div class="flex-1 mr-4" style="position: relative;">
+                    <input
+                        type="text"
+                        placeholder="Search users..."
+                        id="user-search-input"
+                        class="form-control"
+                        style="padding-left: 36px;"
+                        value="${state.userSearchQuery || ''}"
+                        onkeyup="handleUserSearch(event)"
+                    />
+                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                </div>
+                <button onclick="fetchUsers()" class="btn btn-primary">
+                    <i class="fas fa-sync-alt mr-1"></i> Refresh
+                </button>
+            </div>
+        `;
+        
         html += `
             <div class="overflow-x-auto">
-                <table>
+                <table class="w-full">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Name</th>
+                            <th>Email</th>
                             <th>Role</th>
+                            <th>Department</th>
                         </tr>
                     </thead>
                     <tbody id="users-table-body">
-                        <!-- This would be populated from the server -->
+        `;
+        
+        // Only show loading if actually loading
+        if (state.isLoadingUsers) {
+            html += `
+                <tr>
+                    <td colspan="5" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading users...</td>
+                </tr>
+            `;
+        } else if (state.users && state.users.length > 0) {
+            // Filter users if there is a search query
+            const searchQuery = state.userSearchQuery || '';
+            const filteredUsers = state.users.filter(user => 
+                user.id.toString().includes(searchQuery) ||
+                (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (user.role && user.role.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (user.department_name && user.department_name.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+            
+            if (filteredUsers.length > 0) {
+                filteredUsers.forEach(user => {
+                    // Get a font awesome icon based on role
+                    let roleIcon = '';
+                    switch (user.role) {
+                        case 'admin': 
+                            roleIcon = '<i class="fas fa-user-cog text-blue-600 mr-1"></i>';
+                            break;
+                        case 'deptHead': 
+                            roleIcon = '<i class="fas fa-user-tie text-purple-600 mr-1"></i>';
+                            break;
+                        case 'professor': 
+                            roleIcon = '<i class="fas fa-chalkboard-teacher text-green-600 mr-1"></i>';
+                            break;
+                        case 'student': 
+                            roleIcon = '<i class="fas fa-user-graduate text-orange-600 mr-1"></i>';
+                            break;
+                        default:
+                            roleIcon = '<i class="fas fa-user mr-1"></i>';
+                    }
+                    
+                    html += `
                         <tr>
-                            <td colspan="3" class="text-center">Loading users...</td>
+                            <td>${user.id}</td>
+                            <td>${user.full_name || 'N/A'}</td>
+                            <td>${user.email || 'N/A'}</td>
+                            <td>${roleIcon} ${user.role}</td>
+                            <td>${user.department_name || 'N/A'}</td>
                         </tr>
+                    `;
+                });
+            } else {
+                html += `
+                    <tr>
+                        <td colspan="5" class="text-center py-4">No users match your search.</td>
+                    </tr>
+                `;
+            }
+        } else {
+            html += `
+                <tr>
+                    <td colspan="5" class="text-center py-4">No users found.</td>
+                </tr>
+            `;
+        }
+        
+        html += `
                     </tbody>
                 </table>
             </div>
@@ -239,3 +430,12 @@ function handleDeleteReservation(id) {
     
     renderApp();
 }
+
+function handleUserSearch(event) {
+    state.userSearchQuery = event.target.value;
+    renderApp();
+}
+
+// Make the new functions accessible globally
+window.fetchUsers = fetchUsers;
+window.handleUserSearch = handleUserSearch;

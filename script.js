@@ -326,11 +326,30 @@ function renderApp() {
     
     appContainer.innerHTML = html;
     
-    if (typeof setupRoleEventListeners === 'function') {
-        setupRoleEventListeners();
-    }
+    // Set up event listeners after the DOM is updated
+    setupEventListeners();
     
     console.log("renderApp finished.");
+}
+
+function setupEventListeners() {
+    // These listeners need to be set up after the DOM is updated
+    
+    // For search
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.value = state.searchQuery;
+    
+    // For cancellation reason
+    const cancellationReason = document.getElementById('cancellation-reason');
+    if (cancellationReason) cancellationReason.value = state.cancellationReason;
+    
+    // Call role-specific event listeners if available
+    if (typeof setupRoleEventListeners === 'function') {
+        console.log("Calling role-specific event listeners");
+        setupRoleEventListeners();
+    } else {
+        console.log("No role-specific event listeners available");
+    }
 }
 
 // Function to load reservations and room assignments from the database

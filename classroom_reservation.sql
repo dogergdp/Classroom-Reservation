@@ -44,14 +44,14 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `role`, `full_name`, `email`, `department_id`, `course`, `section`) VALUES
-(1, 'admin', 'password123', 'admin', 'System Administrator', 'admin@university.edu', NULL, NULL, NULL),
-(2, 'deptHead', 'password123', 'deptHead', 'John Smith', 'jsmith@university.edu', 1, NULL, NULL),
-(3, 'prof', 'password123', 'professor', 'Jane Doe', 'jdoe@university.edu', 1, NULL, NULL),
-(4, 'student', 'password123', 'student', 'Mark Johnson', 'mjohnson@university.edu', 1, 'BSCS', '2A'),
-(5, 'profmike', 'password123', 'professor', 'Michael Chen', 'mchen@university.edu', 1, NULL, NULL),
-(6, 'profalex', 'password123', 'professor', 'Alex Rodriguez', 'arodriguez@university.edu', 1, NULL, NULL),
-(7, 'emma', 'password123', 'student', 'Emma Williams', 'ewilliams@university.edu', 1, 'BSIT', '3B'),
-(8, 'david', 'password123', 'student', 'David Lee', 'dlee@university.edu', 1, 'BSIS', '1A');
+(1, 'admin', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'admin', 'System Administrator', 'admin@university.edu', NULL, NULL, NULL),
+(2, 'deptHead', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'deptHead', 'John Smith', 'jsmith@university.edu', 1, NULL, NULL),
+(3, 'prof', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'professor', 'Jane Doe', 'jdoe@university.edu', 1, NULL, NULL),
+(4, 'student', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'student', 'Mark Johnson', 'mjohnson@university.edu', 1, 'BSCS', '2A'),
+(5, 'profmike', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'professor', 'Michael Chen', 'mchen@university.edu', 1, NULL, NULL),
+(6, 'profalex', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'professor', 'Alex Rodriguez', 'arodriguez@university.edu', 1, NULL, NULL),
+(7, 'emma', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'student', 'Emma Williams', 'ewilliams@university.edu', 1, 'BSIT', '3B'),
+(8, 'david', 'cbfdac6008f9cab4083784cbd1874f76618d2a97', 'student', 'David Lee', 'dlee@university.edu', 1, 'BSIS', '1A');
 
 --
 -- Table structure for table `departments`

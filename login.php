@@ -11,7 +11,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $conn = getDbConnection();
         
         $stmt = $conn->prepare("SELECT u.id, u.username, u.password, u.role, u.full_name, 
-                               u.email, u.department_id, d.name as department_name 
+                               u.email, u.department_id, d.name as department_name,
+                               u.course, u.section 
                                FROM users u 
                                LEFT JOIN departments d ON u.department_id = d.id 
                                WHERE u.username = :username");
@@ -20,7 +21,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($user && $password === $user['password']) { // In production, use password_verify()
+        // Hash the provided password with SHA-1 for comparison
+        $hashed_password = sha1($password);
+        
+        if ($user && $hashed_password === $user['password']) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['full_name'] = $user['full_name'];
@@ -37,6 +41,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $stmt->execute();
                     $_SESSION['professor_count'] = $stmt->fetchColumn();
                 }
+            }
+            
+            // Store course and section for students
+            if ($user['role'] === 'student') {
+                $_SESSION['course'] = $user['course'];
+                $_SESSION['section'] = $user['section'];
             }
             
             header("Location: app.php");

@@ -1,56 +1,69 @@
 <?php
-session_start();
-header('Content-Type: application/json');
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Check if user is logged in and is a student
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'student') {
+    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
     exit;
 }
 
-// Database connection
-require_once '../db_connect.php';
+// Include database connection
+require_once '../includes/db_connect.php';
 
 try {
-    $userId = $_SESSION['user_id'];
-    
+    // Query to get the latest student information
     $stmt = $conn->prepare("
-        SELECT full_name, email, department_id, course, section
-        FROM users
-        WHERE id = :userId AND role = 'student'
+        SELECT course, section, department_id
+        FROM users 
+        WHERE id = :user_id
     ");
     
-    $stmt->bindParam(':userId', $userId);
+    $stmt->bindParam(':user_id', $_SESSION['user_id']);
     $stmt->execute();
     
-    $studentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+    $studentData = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($studentInfo) {
-        // Get department name if applicable
+    if ($studentData) {
+        // If department ID exists, get department name
         $departmentName = null;
-        if ($studentInfo['department_id']) {
-            $deptStmt = $conn->prepare("SELECT name FROM departments WHERE id = :deptId");
-            $deptStmt->bindParam(':deptId', $studentInfo['department_id']);
+        if ($studentData['department_id']) {
+            $deptStmt = $conn->prepare("SELECT name FROM departments WHERE id = :dept_id");
+            $deptStmt->bindParam(':dept_id', $studentData['department_id']);
             $deptStmt->execute();
-            $deptInfo = $deptStmt->fetch(PDO::FETCH_ASSOC);
-            if ($deptInfo) {
-                $departmentName = $deptInfo['name'];
+            $department = $deptStmt->fetch(PDO::FETCH_ASSOC);
+            if ($department) {
+                $departmentName = $department['name'];
             }
         }
         
+        // Get year level from section (first character)
+        $yearLevel = null;
+        if ($studentData['section'] && strlen($studentData['section']) >= 1) {
+            $yearLevel = substr($studentData['section'], 0, 1);
+        }
+        
+        // Return the data
+        header('Content-Type: application/json');
         echo json_encode([
-            'success' => true, 
-            'name' => $studentInfo['full_name'],
-            'email' => $studentInfo['email'],
-            'departmentId' => $studentInfo['department_id'],
-            'departmentName' => $departmentName,
-            'course' => $studentInfo['course'],
-            'section' => $studentInfo['section']
+            'success' => true,
+            'course' => $studentData['course'],
+            'section' => $studentData['section'],
+            'department_name' => $departmentName,
+            'year_level' => $yearLevel
         ]);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Student not found']);
+        // If no data found
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Student information not found']);
     }
 } catch (PDOException $e) {
+    // Log error and return error response
+    error_log('Database error: ' . $e->getMessage());
+    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
 }
 ?>

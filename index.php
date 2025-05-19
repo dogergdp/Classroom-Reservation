@@ -23,6 +23,14 @@
                 unset($_SESSION['login_error']);
             }
             ?>
+
+            <!-- Show success message from signup -->
+            <?php if (isset($_SESSION['signup_success'])): ?>
+                <div class="mt-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4" role="alert">
+                    <p><?php echo htmlspecialchars($_SESSION['signup_success']); ?></p>
+                    <?php unset($_SESSION['signup_success']); ?>
+                </div>
+            <?php endif; ?>
             
             <form action="login.php" method="POST">
                 <div class="mb-4">
@@ -35,6 +43,16 @@
                 </div>
                 <button type="submit" class="btn btn-primary w-full">Login</button>
             </form>
+
+            <!-- Add this code block for the signup link -->
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-600">
+                    Don't have an account? 
+                    <a href="signup.php" class="font-medium text-rose-600 hover:text-rose-500">
+                        Sign up now
+                    </a>
+                </p>
+            </div>
         </div>
     </div>
 </body>
