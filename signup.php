@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'db_config.php';
+$encryption_key = getenv('CLASSROOM_APP_KEY');
 
 $errors = [];
 $success = false;
@@ -13,8 +14,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = trim($_POST['username']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
-    $full_name = trim($_POST['full_name']);
-    $email = trim($_POST['email']);
+    $first_name = encryptData(trim($_POST['first_name']), $encryption_key);
+    $middle_name = encryptData(trim($_POST['middle_name']), $encryption_key);
+    $last_name = encryptData(trim($_POST['last_name']), $encryption_key);
+    $email = encryptData(trim($_POST['email']), $encryption_key);
     
     // Determine role based on email
     if (preg_match('/^professor\.|\.professor@|^prof\.|\.prof@|^faculty\.|\.faculty@/i', $email)) {
@@ -54,14 +57,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($password !== $confirm_password) {
         $errors[] = "Passwords do not match";
     }
-    if (empty($full_name)) {
-        $errors[] = "Full name is required";
-    }
-    if (empty($email)) {
+    $raw_email = trim($_POST['email']);
+
+    if (empty($raw_email)) {
         $errors[] = "Email is required";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    } elseif (!filter_var($raw_email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = "Invalid email format";
     }
+
+    // Only encrypt after validation
+    $email = encryptData($raw_email, $encryption_key);
     
     // Validate student-specific fields
     if ($role === 'student') {
@@ -78,10 +83,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         try {
             $conn = getDbConnection();
             
+            // Check if email already exists
+            $encrypted_email = encryptData($email, $encryption_key);
+
+            $stmt = $conn->prepare("SELECT id FROM users WHERE email = :email");
+            $stmt->bindParam(':email', $encrypted_email);
+            $stmt->execute();
+            if ($stmt->rowCount() > 0) {
+                $errors[] = "Email already exists. Please use another email.";
+            }
+
             // Check if username already exists
             $stmt = $conn->prepare("SELECT id FROM users WHERE username = :username");
             $stmt->bindParam(':username', $username);
             $stmt->execute();
+            
+            
             
             if ($stmt->rowCount() > 0) {
                 $errors[] = "Username already exists. Please choose another one.";
@@ -90,22 +107,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $hashed_password = sha1($password);
                 
                 // Insert new user
-                if ($role === 'student') {
-                    // For students, include course and section
-                    $stmt = $conn->prepare("INSERT INTO users (username, password, role, full_name, email, course, section) 
-                                            VALUES (:username, :password, :role, :full_name, :email, :course, :section)");
-                    $stmt->bindParam(':course', $course);
-                    $stmt->bindParam(':section', $section);
-                } else {
-                    // For other roles
-                    $stmt = $conn->prepare("INSERT INTO users (username, password, role, full_name, email) 
-                                            VALUES (:username, :password, :role, :full_name, :email)");
-                }
+            if ($role === 'student') {
+                // Get department_id for the course
+                $department_id = getDepartmentIdForCourse($conn, strtoupper($course));
+
+                // For students, include course, section, and department_id
+                $stmt = $conn->prepare("INSERT INTO users (username, password, role, first_name, middle_name, last_name, email, course, section, department_id) 
+                        VALUES (:username, :password, :role, :first_name, :middle_name, :last_name, :email, :course, :section, :department_id)");
+                $stmt->bindParam(':course', $course);
+                $stmt->bindParam(':section', $section);
+                $stmt->bindParam(':department_id', $department_id);
+            }
                 
                 $stmt->bindParam(':username', $username);
                 $stmt->bindParam(':password', $hashed_password);
                 $stmt->bindParam(':role', $role);
-                $stmt->bindParam(':full_name', $full_name);
+                $stmt->bindParam(':first_name', $first_name);
+                $stmt->bindParam(':middle_name', $middle_name);
+                $stmt->bindParam(':last_name', $last_name);
                 $stmt->bindParam(':email', $email);
                 
                 if ($stmt->execute()) {
@@ -123,7 +142,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
+
+function encryptData($data, $key) {
+    $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
+    $iv = openssl_random_pseudo_bytes($ivlen);
+    $ciphertext_raw = openssl_encrypt($data, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
+    $hmac = hash_hmac('sha256', $ciphertext_raw, $key, $as_binary=true);
+    return base64_encode($iv.$hmac.$ciphertext_raw);
+}
+
+
 // Additional logic to detect course and section from username/email
+function getDepartmentIdForCourse($conn, $course) {
+    // All courses map to "Computer Studies"
+    $deptName = 'Computer Studies';
+    $stmt = $conn->prepare("SELECT id FROM departments WHERE name = :name");
+    $stmt->bindParam(':name', $deptName);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? $row['id'] : null;
+}
+
+
+
 function detectStudentInfo($input) {
     $info = [
         'course' => '',
@@ -196,11 +237,25 @@ if (isset($_POST['username']) || isset($_POST['email'])) {
             <form class="mt-8 space-y-6" method="POST" action="signup.php">
                 <div class="rounded-md shadow-sm -space-y-px">
                     <div>
-                        <label for="full_name" class="sr-only">Full Name</label>
-                        <input id="full_name" name="full_name" type="text" required 
-                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm" 
-                               placeholder="Full Name"
-                               value="<?php echo isset($_POST['full_name']) ? htmlspecialchars($_POST['full_name']) : ''; ?>">
+                        <label for="first_name" class="sr-only">First Name</label>
+                        <input id="first_name" name="first_name" type="text" required 
+                            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm" 
+                            placeholder="First Name"
+                            value="<?php echo isset($_POST['first_name']) ? htmlspecialchars($_POST['first_name']) : ''; ?>">
+                    </div>
+                    <div>
+                        <label for="middle_name" class="sr-only">Middle Name</label>
+                        <input id="middle_name" name="middle_name" type="text"
+                            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm" 
+                            placeholder="Middle Name"
+                            value="<?php echo isset($_POST['middle_name']) ? htmlspecialchars($_POST['middle_name']) : ''; ?>">
+                    </div>
+                    <div>
+                        <label for="last_name" class="sr-only">Last Name</label>
+                        <input id="last_name" name="last_name" type="text" required
+                            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm" 
+                            placeholder="Last Name"
+                            value="<?php echo isset($_POST['last_name']) ? htmlspecialchars($_POST['last_name']) : ''; ?>">
                     </div>
                     <div>
                         <label for="email" class="sr-only">Email address</label>
