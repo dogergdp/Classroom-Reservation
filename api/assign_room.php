@@ -23,12 +23,21 @@ if (!isset($data['professorId']) || !isset($data['room']) || !isset($data['date'
 // Database connection
 require_once '../db_connect.php';
 
+function decryptData($encrypted, $key) {
+    $c = base64_decode($encrypted);
+    $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
+    $iv = substr($c, 0, $ivlen);
+    $ciphertext_raw = substr($c, $ivlen);
+    $original = openssl_decrypt($ciphertext_raw, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
+    return $original;
+}
+
 try {
     $conn->beginTransaction();
     
     // First, check if the professor is in this department head's department
     $stmt = $conn->prepare("
-        SELECT id, full_name FROM users 
+        SELECT id, first_name, middle_name, last_name FROM users 
         WHERE id = :professorId AND role = 'professor' AND department_id = :departmentId
     ");
     $stmt->bindParam(':professorId', $data['professorId']);
@@ -112,6 +121,12 @@ try {
     $conn->commit();
     
     // Return success response with created data
+    $encryption_key = getenv('CLASSROOM_APP_KEY');
+    $first = $professor['first_name'] ? decryptData($professor['first_name'], $encryption_key) : '';
+    $middle = $professor['middle_name'] ? decryptData($professor['middle_name'], $encryption_key) : '';
+    $last = $professor['last_name'] ? decryptData($professor['last_name'], $encryption_key) : '';
+    $professor_name = trim($first . ' ' . ($middle ? $middle . ' ' : '') . $last);
+    
     echo json_encode([
         'success' => true,
         'reservation' => [
@@ -127,7 +142,7 @@ try {
         'assignment' => [
             'id' => $assignmentId,
             'professorId' => $data['professorId'],
-            'professorName' => $professor['full_name'],
+            'professorName' => $professor_name,
             'room' => $data['room'],
             'date' => $data['date'],
             'startTime' => $data['startTime'],

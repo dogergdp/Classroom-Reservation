@@ -22,13 +22,22 @@ if (!isset($data['id']) || !isset($data['status']) ||
 // Database connection
 require_once '../db_connect.php';
 
+function decryptData($encrypted, $key) {
+    $c = base64_decode($encrypted);
+    $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
+    $iv = substr($c, 0, $ivlen);
+    $ciphertext_raw = substr($c, $ivlen);
+    $original = openssl_decrypt($ciphertext_raw, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
+    return $original;
+}
+
 try {
     $conn->beginTransaction();
     
     // First, get the reservation details to ensure it exists and belongs to this department
     $reservationId = $data['id'];
     $stmt = $conn->prepare("
-        SELECT r.*, u.full_name AS professor_name 
+        SELECT r.*, u.first_name, u.middle_name, u.last_name
         FROM reservations r
         JOIN users u ON r.professor_id = u.id
         WHERE r.id = :id
@@ -123,12 +132,18 @@ try {
         $stmt->execute();
         
         $assignmentId = $conn->lastInsertId();
+
+        $encryption_key = getenv('CLASSROOM_APP_KEY');
+        $first = $reservation['first_name'] ? decryptData($reservation['first_name'], $encryption_key) : '';
+        $middle = $reservation['middle_name'] ? decryptData($reservation['middle_name'], $encryption_key) : '';
+        $last = $reservation['last_name'] ? decryptData($reservation['last_name'], $encryption_key) : '';
+        $professorName = trim($first . ' ' . ($middle ? $middle . ' ' : '') . $last);
         
         // Get the assignment data to return to the client
         $assignmentData = [
             'id' => $assignmentId,
             'professorId' => $reservation['professor_id'],
-            'professorName' => $reservation['professor_name'],
+            'professorName' => $professorName,
             'room' => $reservation['room'],
             'date' => $reservation['reservation_date'],
             'startTime' => $reservation['start_time'],

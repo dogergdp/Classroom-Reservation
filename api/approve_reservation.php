@@ -11,6 +11,15 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] != 'admin' && $_SESSION['
 // Database connection
 require_once '../db_connect.php';
 
+function decryptData($encrypted, $key) {
+    $c = base64_decode($encrypted);
+    $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
+    $iv = substr($c, 0, $ivlen);
+    $ciphertext_raw = substr($c, $ivlen);
+    $original = openssl_decrypt($ciphertext_raw, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
+    return $original;
+}
+
 try {
     // Validate input
     if (!isset($_POST['reservation_id']) || empty($_POST['reservation_id'])) {
@@ -24,7 +33,9 @@ try {
     
     // Get the reservation details first
     $stmt = $conn->prepare("
-        SELECT r.*, u.full_name AS professor_name 
+        SELECT r.*, 
+            u.first_name, u.middle_name, u.last_name,
+            u.id AS professor_id
         FROM reservations r
         JOIN users u ON r.professor_id = u.id
         WHERE r.id = :id
@@ -101,13 +112,19 @@ try {
     
     $conn->commit();
     
+    $encryption_key = getenv('CLASSROOM_APP_KEY');
+    $first = $professor['first_name'] ? decryptData($professor['first_name'], $encryption_key) : '';
+    $middle = $professor['middle_name'] ? decryptData($professor['middle_name'], $encryption_key) : '';
+    $last = $professor['last_name'] ? decryptData($professor['last_name'], $encryption_key) : '';
+    $professor_name = trim($first . ' ' . ($middle ? $middle . ' ' : '') . $last);
+    
     echo json_encode([
         'success' => true, 
         'message' => 'Reservation approved successfully',
         'assignment' => [
             'id' => $assignmentId,
             'professorId' => $reservation['professor_id'],
-            'professorName' => $reservation['professor_name'],
+            'professorName' => $professor_name,
             'room' => $reservation['room'],
             'date' => $reservation['reservation_date'],
             'startTime' => $reservation['start_time'],

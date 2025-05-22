@@ -325,6 +325,16 @@ function renderApp() {
     html += renderApprovalDenialModal();
     
     appContainer.innerHTML = html;
+
+    setTimeout(() => {
+        const searchInput = document.getElementById('user-search-input');
+            if (searchInput) {
+                searchInput.focus();
+                const val = searchInput.value;
+                searchInput.value = '';
+                searchInput.value = val;
+            }
+    }, 0);
     
     // Set up event listeners after the DOM is updated
     setupEventListeners();

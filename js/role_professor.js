@@ -9,6 +9,27 @@ function renderRoleSpecificContent() {
     return html;
 }
 
+function showNotification(message, type = 'success', duration = 2500) {
+    // Remove any existing notification
+    const existing = document.getElementById('prof-notification');
+    if (existing) existing.remove();
+
+    // Create notification element
+    const notif = document.createElement('div');
+    notif.id = 'prof-notification';
+    notif.className = `fixed top-6 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded shadow-lg text-white transition-opacity duration-500 ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`;
+    notif.style.opacity = '1';
+    notif.innerHTML = `<i class="fas fa-check-circle mr-2"></i> ${message}`;
+
+    document.body.appendChild(notif);
+
+    // Fade out after duration
+    setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => notif.remove(), 500);
+    }, duration);
+}
+
 function setupRoleEventListeners() {
     // For professor new reservation form
     const newReservationForm = document.getElementById('new-reservation-form');
@@ -284,6 +305,7 @@ function handleSubmitReservation(event) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            showNotification('Reservation request submitted successfully', 'success');
             // Add new reservation to the local state
             const newReservation = new Reservation(
                 data.reservation.id,

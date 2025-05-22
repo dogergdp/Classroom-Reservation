@@ -206,6 +206,16 @@ body {
   margin-left: 0.5rem;
 }
 
+.space-x-24 > * + * {
+  margin-left: 6rem;
+}
+.space-x-20 > * + * {
+  margin-left: 5rem;
+}
+.space-x-12 > * + * {
+  margin-left: 3rem;
+}
+
 .mb-1 {
   margin-bottom: 0.25rem;
 }
@@ -424,9 +434,17 @@ body {
   background-color: #f3f4f6;
 }
 
-.bg-rose-50 {
-  background-color: #fff1f2;
-}
+/* Rose color scale (matching Tailwind CSS) */
+.bg-rose-50  { background-color: #fff1f2; }
+.bg-rose-100 { background-color: #ffe4e6; }
+.bg-rose-200 { background-color: #fecdd3; }
+.bg-rose-300 { background-color: #fda4af; }
+.bg-rose-400 { background-color: #fb7185; }
+.bg-rose-500 { background-color: #f43f5e; }
+.bg-rose-600 { background-color: #e11d48; }
+.bg-rose-700 { background-color: #be123c; }
+.bg-rose-800 { background-color: #9f1239; }
+.bg-rose-900 { background-color: #881337; }
 
 .bg-green-50 {
   background-color: #ecfdf5;

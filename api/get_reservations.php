@@ -12,6 +12,15 @@ if (!isset($_SESSION['user_id'])) {
 // Database connection
 require_once '../db_connect.php';
 
+function decryptData($encrypted, $key) {
+    $c = base64_decode($encrypted);
+    $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
+    $iv = substr($c, 0, $ivlen);
+    $ciphertext_raw = substr($c, $ivlen);
+    $original = openssl_decrypt($ciphertext_raw, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
+    return $original;
+}
+
 try {
     $userId = $_SESSION['user_id'];
     $role = $_SESSION['role'];
@@ -25,7 +34,7 @@ try {
             SELECT 
                 r.id,
                 r.professor_id,
-                u.full_name AS professor_name,
+                u.first_name, u.middle_name, u.last_name,
                 r.room,
                 r.reservation_date AS date,
                 r.start_time,
@@ -44,7 +53,7 @@ try {
             SELECT 
                 r.id,
                 r.professor_id,
-                u.full_name AS professor_name,
+                u.first_name, u.middle_name, u.last_name,
                 r.room,
                 r.reservation_date AS date,
                 r.start_time,
@@ -66,7 +75,7 @@ try {
             SELECT 
                 r.id,
                 r.professor_id,
-                u.full_name AS professor_name,
+                u.first_name, u.middle_name, u.last_name,
                 r.room,
                 r.reservation_date AS date,
                 r.start_time,
@@ -104,7 +113,7 @@ try {
             SELECT 
                 r.id,
                 r.professor_id,
-                u.full_name AS professor_name,
+                u.first_name, u.middle_name, u.last_name,
                 r.room,
                 r.reservation_date AS date,
                 r.start_time,
@@ -129,7 +138,7 @@ try {
             SELECT 
                 r.id,
                 r.professor_id,
-                u.full_name AS professor_name,
+                u.first_name, u.middle_name, u.last_name,
                 r.room,
                 r.reservation_date AS date,
                 r.start_time,
@@ -148,22 +157,28 @@ try {
     $stmt->execute();
     $reservations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    $encryption_key = getenv('CLASSROOM_APP_KEY');
     $formattedReservations = [];
     foreach ($reservations as $res) {
+        $first = $res['first_name'] ? decryptData($res['first_name'], $encryption_key) : '';
+        $middle = $res['middle_name'] ? decryptData($res['middle_name'], $encryption_key) : '';
+        $last = $res['last_name'] ? decryptData($res['last_name'], $encryption_key) : '';
+        $professor_name = trim($first . ' ' . ($middle ? $middle . ' ' : '') . $last);
+
         $formattedReservations[] = [
             'id' => $res['id'],
             'professorId' => $res['professor_id'],
-            'professorName' => $res['professor_name'],
+            'professorName' => $professor_name,
             'room' => $res['room'],
             'date' => $res['date'],
             'startTime' => $res['start_time'],
             'duration' => $res['duration'],
             'status' => $res['status'],
-            'reason' => $res['reason'], // Consider if 'denial_reason' should be used for 'denied' status
+            'reason' => $res['reason'],
             'course' => $res['course'],
             'section' => $res['section']
         ];
-    } 
+    }
 
     error_log('Formatted reservations: ' . print_r($formattedReservations, true));
 

@@ -17,7 +17,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $first_name = encryptData(trim($_POST['first_name']), $encryption_key);
     $middle_name = encryptData(trim($_POST['middle_name']), $encryption_key);
     $last_name = encryptData(trim($_POST['last_name']), $encryption_key);
-    $email = encryptData(trim($_POST['email']), $encryption_key);
+    $raw_email = trim($_POST['email']);
+    $email = $raw_email; // <-- Add this line
+
+    if (empty($raw_email)) {
+        $errors[] = "Email is required";
+    } elseif (!filter_var($raw_email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Invalid email format";
+    }
+
     
     // Determine role based on email
     if (preg_match('/^professor\.|\.professor@|^prof\.|\.prof@|^faculty\.|\.faculty@/i', $email)) {
@@ -66,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Only encrypt after validation
-    $email = encryptData($raw_email, $encryption_key);
+    $encrypted_email = encryptData($raw_email, $encryption_key);
     
     // Validate student-specific fields
     if ($role === 'student') {
@@ -78,13 +86,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
     
+    
     // If no errors, proceed with registration
     if (empty($errors)) {
         try {
             $conn = getDbConnection();
             
             // Check if email already exists
-            $encrypted_email = encryptData($email, $encryption_key);
+            
 
             $stmt = $conn->prepare("SELECT id FROM users WHERE email = :email");
             $stmt->bindParam(':email', $encrypted_email);
@@ -97,36 +106,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt = $conn->prepare("SELECT id FROM users WHERE username = :username");
             $stmt->bindParam(':username', $username);
             $stmt->execute();
-            
-            
-            
             if ($stmt->rowCount() > 0) {
                 $errors[] = "Username already exists. Please choose another one.";
             } else {
-                // Hash the password using SHA-1
+                // Hash the password (keep this for security)
                 $hashed_password = sha1($password);
-                
-                // Insert new user
-            if ($role === 'student') {
-                // Get department_id for the course
-                $department_id = getDepartmentIdForCourse($conn, strtoupper($course));
 
-                // For students, include course, section, and department_id
-                $stmt = $conn->prepare("INSERT INTO users (username, password, role, first_name, middle_name, last_name, email, course, section, department_id) 
-                        VALUES (:username, :password, :role, :first_name, :middle_name, :last_name, :email, :course, :section, :department_id)");
-                $stmt->bindParam(':course', $course);
-                $stmt->bindParam(':section', $section);
-                $stmt->bindParam(':department_id', $department_id);
-            }
-                
+                // Insert new user
+                if ($role === 'student') {
+                    $department_id = getDepartmentIdForCourse($conn, strtoupper($course));
+                    $stmt = $conn->prepare("INSERT INTO users (username, password, role, first_name, middle_name, last_name, email, course, section, department_id) 
+                            VALUES (:username, :password, :role, :first_name, :middle_name, :last_name, :email, :course, :section, :department_id)");
+                    $stmt->bindParam(':course', $course);
+                    $stmt->bindParam(':section', $section);
+                    $stmt->bindParam(':department_id', $department_id);
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO users (username, password, role, first_name, middle_name, last_name, email) 
+                            VALUES (:username, :password, :role, :first_name, :middle_name, :last_name, :email)");
+                }
+
                 $stmt->bindParam(':username', $username);
                 $stmt->bindParam(':password', $hashed_password);
                 $stmt->bindParam(':role', $role);
                 $stmt->bindParam(':first_name', $first_name);
                 $stmt->bindParam(':middle_name', $middle_name);
                 $stmt->bindParam(':last_name', $last_name);
-                $stmt->bindParam(':email', $email);
-                
+                $stmt->bindParam(':email', $encrypted_email);
+
                 if ($stmt->execute()) {
                     $success = true;
                     $_SESSION['signup_success'] = "Registration successful! You can now log in.";
@@ -147,8 +153,7 @@ function encryptData($data, $key) {
     $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
     $iv = openssl_random_pseudo_bytes($ivlen);
     $ciphertext_raw = openssl_encrypt($data, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
-    $hmac = hash_hmac('sha256', $ciphertext_raw, $key, $as_binary=true);
-    return base64_encode($iv.$hmac.$ciphertext_raw);
+    return base64_encode($iv . $ciphertext_raw);
 }
 
 
@@ -258,7 +263,7 @@ if (isset($_POST['username']) || isset($_POST['email'])) {
                             value="<?php echo isset($_POST['last_name']) ? htmlspecialchars($_POST['last_name']) : ''; ?>">
                     </div>
                     <div>
-                        <label for="email" class="sr-only">Email address</label>
+                        <label for="email" class="sr-only">Email Address</label>
                         <input id="email" name="email" type="email" required 
                                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-rose-500 focus:border-rose-500 focus:z-10 sm:text-sm" 
                                placeholder="Email address"
@@ -266,6 +271,7 @@ if (isset($_POST['username']) || isset($_POST['email'])) {
                                onblur="detectRole(this.value); detectStudentInfo(this.value);">
                         <div id="role-indicator" class="text-sm text-gray-600 mt-1 ml-1"></div>
                     </div>
+                    <div style="height: 32px; min-height: 16px; width: 1px;"></div>
                     <div>
                         <label for="username" class="sr-only">Username</label>
                         <input id="username" name="username" type="text" required 
@@ -331,11 +337,10 @@ if (isset($_POST['username']) || isset($_POST['email'])) {
                 </div>
 
                 <div>
-                    <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-rose-600 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500">
-                        <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-                            <i class="fas fa-user-plus"></i>
-                        </span>
-                        Sign up
+                    <button type="submit"
+                        style="display:block;width:100%;padding:0.5rem 1rem;background:#e11d48;color:#fff;border:none;border-radius:0.375rem;font-size:1rem;cursor:pointer;"
+                    >
+                        <i class="fas fa-user-plus" style="margin-right:0.5em;"></i> Sign up
                     </button>
                 </div>
                 

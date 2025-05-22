@@ -164,18 +164,26 @@ function renderAdminDashboard() {
     } else if (state.activeTab === 'users') {
         // Add a refresh button and search box
         html += `
-            <div class="mb-4 flex justify-between items-center">
-                <div class="flex-1 mr-4" style="position: relative;">
-                    <input
-                        type="text"
-                        placeholder="Search users..."
-                        id="user-search-input"
-                        class="form-control"
-                        style="padding-left: 36px;"
-                        value="${state.userSearchQuery || ''}"
-                        onkeyup="handleUserSearch(event)"
-                    />
-                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+            <div class="mb-4 flex flex-wrap items-center gap-2">
+                <div class="flex items-center gap-2 flex-1" style="min-width: 250px;">
+                    <div style="position: relative; flex: 1;">
+                        <input
+                            type="text"
+                            placeholder="Search users..."
+                            id="user-search-input"
+                            class="form-control"
+                            style="padding-left: 36px; width: 250px;"
+                            value="${state.userSearchQuery || ''}"
+                            onkeyup="handleUserSearch(event)"
+                        />
+                        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                    </div>
+                    <select id="user-role-filter" class="form-control" onchange="handleRoleFilter(event)">
+                        <option value="" ${!state.userRoleFilter ? 'selected' : ''}>All Roles</option>
+                        <option value="student" ${state.userRoleFilter === 'student' ? 'selected' : ''}>Students</option>
+                        <option value="professor" ${state.userRoleFilter === 'professor' ? 'selected' : ''}>Professors</option>
+                        <option value="deptHead" ${state.userRoleFilter === 'deptHead' ? 'selected' : ''}>Department Heads</option>
+                    </select>
                 </div>
                 <button onclick="fetchUsers()" class="btn btn-primary">
                     <i class="fas fa-sync-alt mr-1"></i> Refresh
@@ -189,6 +197,7 @@ function renderAdminDashboard() {
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Username</th> <!-- Added Username column -->
                             <th>Name</th>
                             <th>Email</th>
                             <th>Role</th>
@@ -207,14 +216,18 @@ function renderAdminDashboard() {
             `;
         } else if (state.users && state.users.length > 0) {
             // Filter users if there is a search query
-            const searchQuery = state.userSearchQuery || '';
-            const filteredUsers = state.users.filter(user => 
-                user.id.toString().includes(searchQuery) ||
-                (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (user.role && user.role.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (user.department_name && user.department_name.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
+                const searchQuery = state.userSearchQuery || '';
+                const selectedRole = state.userRoleFilter || '';
+                const filteredUsers = state.users.filter(user =>
+                    (selectedRole === '' || user.role === selectedRole) &&
+                    (
+                        user.id.toString().includes(searchQuery) ||
+                        (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                        (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                        (user.role && user.role.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                        (user.department_name && user.department_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                );
             
             if (filteredUsers.length > 0) {
                 filteredUsers.forEach(user => {
@@ -240,6 +253,7 @@ function renderAdminDashboard() {
                     html += `
                         <tr>
                             <td>${user.id}</td>
+                            <td>${user.username || 'N/A'}</td> <!-- Added Username cell -->
                             <td>${user.full_name || 'N/A'}</td>
                             <td>${user.email || 'N/A'}</td>
                             <td>${roleIcon} ${user.role}</td>
@@ -435,7 +449,13 @@ function handleUserSearch(event) {
     state.userSearchQuery = event.target.value;
     renderApp();
 }
+function handleRoleFilter(event) {
+    state.userRoleFilter = event.target.value;
+    renderApp();
+}
 
 // Make the new functions accessible globally
 window.fetchUsers = fetchUsers;
 window.handleUserSearch = handleUserSearch;
+window.handleRoleFilter = handleRoleFilter;
+

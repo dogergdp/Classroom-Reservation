@@ -6,16 +6,8 @@ function decryptData($encrypted, $key) {
     $c = base64_decode($encrypted);
     $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
     $iv = substr($c, 0, $ivlen);
-    if (strlen($iv) !== $ivlen) {
-        error_log("IV length is " . strlen($iv) . ", expected $ivlen. Data: $encrypted");
-    }
-    $hmac = substr($c, $ivlen, $sha2len=32);
-    $ciphertext_raw = substr($c, $ivlen+$sha2len);
+    $ciphertext_raw = substr($c, $ivlen);
     $original = openssl_decrypt($ciphertext_raw, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
-    $calcmac = hash_hmac('sha256', $ciphertext_raw, $key, $as_binary=true);
-    if (!hash_equals($hmac, $calcmac)) {
-        return false;
-    }
     return $original;
 }
 
@@ -43,10 +35,10 @@ try {
     $encryption_key = getenv('CLASSROOM_APP_KEY'); // Or wherever you store your key
 
     // Join with departments to get department names
-    $query = "SELECT u.id, u.username, u.role, u.first_name, u.middle_name, u.last_name, u.full_name, u.email, u.department_id, d.name as department_name 
-              FROM users u 
-              LEFT JOIN departments d ON u.department_id = d.id 
-              ORDER BY u.role, u.full_name";
+    $query = "SELECT u.id, u.username, u.role, u.first_name, u.middle_name, u.last_name, u.email, u.department_id, d.name as department_name 
+            FROM users u 
+            LEFT JOIN departments d ON u.department_id = d.id 
+            ORDER BY u.role, u.last_name, u.first_name";
 
     $stmt = $conn->prepare($query);
     $stmt->execute();
@@ -58,10 +50,11 @@ try {
             if (!empty($row[$field]) && base64_decode($row[$field], true) !== false) {
                 $row[$field] = decryptData($row[$field], $encryption_key);
             } else {
-                $row[$field] = '';
+                // Allow middle_name to be null, others default to empty string
+                $row[$field] = ($field === 'middle_name') ? null : '';
             }
         }
-        $row['full_name'] = trim($row['first_name'] . ' ' . $row['middle_name'] . ' ' . $row['last_name']);
+        $row['full_name'] = trim($row['first_name'] . ' ' . ($row['middle_name'] ?? '') . ' ' . $row['last_name']);
 
         $users[] = [
             'id' => $row['id'],

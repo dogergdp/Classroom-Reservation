@@ -54,7 +54,7 @@ try {
     
     if (isset($_SESSION['department_id'])) {
         $stmt = $conn->prepare("
-            SELECT d.*, u.full_name AS head_name
+            SELECT d.*, u.first_name, u.middle_name, u.last_name
             FROM departments d
             LEFT JOIN users u ON d.head_id = u.id
             WHERE d.id = :dept_id

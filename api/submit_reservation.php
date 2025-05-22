@@ -33,6 +33,15 @@ foreach ($requiredFields as $field) {
     }
 }
 
+function decryptData($encrypted, $key) {
+    $c = base64_decode($encrypted);
+    $ivlen = openssl_cipher_iv_length($cipher="AES-128-CBC");
+    $iv = substr($c, 0, $ivlen);
+    $ciphertext_raw = substr($c, $ivlen);
+    $original = openssl_decrypt($ciphertext_raw, $cipher, $key, $options=OPENSSL_RAW_DATA, $iv);
+    return $original;
+}
+
 try {
     $conn = getDbConnection();
     
@@ -59,7 +68,7 @@ try {
     }
     
     // Get professor's department_id
-    $stmt = $conn->prepare("SELECT department_id, full_name FROM users WHERE id = :id");
+    $stmt = $conn->prepare("SELECT department_id, first_name, middle_name, last_name FROM users WHERE id = :id");
     $stmt->execute(['id' => $_SESSION['user_id']]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -90,6 +99,12 @@ try {
     $stmt->execute();
     
     $reservationId = $conn->lastInsertId();
+    
+    $encryption_key = getenv('CLASSROOM_APP_KEY');
+    $first = $user['first_name'] ? decryptData($user['first_name'], $encryption_key) : '';
+    $middle = $user['middle_name'] ? decryptData($user['middle_name'], $encryption_key) : '';
+    $last = $user['last_name'] ? decryptData($user['last_name'], $encryption_key) : '';
+    $professorName = trim($first . ' ' . ($middle ? $middle . ' ' : '') . $last);
     
     echo json_encode([
         'success' => true, 
