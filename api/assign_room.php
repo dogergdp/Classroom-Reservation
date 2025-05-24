@@ -118,6 +118,19 @@ try {
     
     $assignmentId = $conn->lastInsertId();
     
+    // --- Activity Logging: Store room assignment in activity_logs table ---
+    try {
+        $logStmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (:user_id, :action, :details, :action_type)");
+        $logStmt->bindValue(':user_id', $_SESSION['user_id']);
+        $logStmt->bindValue(':action', 'Assign room');
+        $logStmt->bindValue(':details', 'Room ' . $data['room'] . ' assigned to Professor ID ' . $data['professorId'] . ' for ' . $data['date'] . ' from ' . $data['startTime'] . ' to ' . $data['endTime'] . ' (' . $data['course'] . ' - ' . $data['section'] . ')');
+        $logStmt->bindValue(':action_type', 'reservation');
+        $logStmt->execute();
+    } catch (Exception $logEx) {
+        // Logging failure should not block assignment
+    }
+    // --- End Activity Logging ---
+
     $conn->commit();
     
     // Return success response with created data
