@@ -12,7 +12,7 @@ function setupRoleEventListeners() {
     }
     
     // Fetch activity logs if we're on the logs tab
-    if (state.activeTab === 'logs' && (!state.activityLogs || state.activityLogs.length === 0)) {
+    if (state.activeTab === 'logs' && typeof state.activityLogs === 'undefined') {
         fetchActivityLogs();
     }
 
@@ -35,7 +35,7 @@ function setupRoleEventListeners() {
                 if (tabName === 'users' && (!state.users || state.users.length === 0)) {
                     fetchUsers();
                 }
-                if (tabName === 'logs' && (!state.activityLogs || state.activityLogs.length === 0)) {
+                if (tabName === 'logs' && typeof state.activityLogs === 'undefined') {
                     fetchActivityLogs();
                 }
             });
@@ -517,13 +517,13 @@ function renderAdminDashboard() {
         `;
         
         // Only show loading if actually loading
-        if (state.isLoadingLogs) {
-            html += `
-                <tr>
-                    <td colspan="4" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading activity logs...</td>
-                </tr>
-            `;
-        } else if (state.activityLogs && state.activityLogs.length > 0) {
+            if (state.isLoadingLogs) {
+                html += `
+                    <tr>
+                        <td colspan="4" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading activity logs...</td>
+                    </tr>
+                `;
+            } else if (Array.isArray(state.activityLogs) && state.activityLogs.length > 0) {
             // Filter logs if there is a search query or type filter
             const searchQuery = state.logSearchQuery || '';
             const typeFilter = state.logTypeFilter || '';
@@ -574,7 +574,7 @@ function renderAdminDashboard() {
                     </tr>
                 `;
             }
-        } else {
+        } else if (Array.isArray(state.activityLogs) && state.activityLogs.length === 0) {
             html += `
                 <tr>
                     <td colspan="4" class="text-center py-4">No activity logs found.</td>
