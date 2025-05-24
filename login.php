@@ -64,6 +64,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['section'] = $user['section'];
             }
 
+            // --- Activity Logging: Store login in activity_logs table ---
+            try {
+                $logConn = getDbConnection();
+                $logStmt = $logConn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (:user_id, :action, :details, :action_type)");
+                $logStmt->bindValue(':user_id', $user['id']);
+                $logStmt->bindValue(':action', 'User login');
+                $logStmt->bindValue(':details', $user['username'] . ' logged in successfully');
+                $logStmt->bindValue(':action_type', 'login');
+                $logStmt->execute();
+            } catch (Exception $logEx) {
+                // Logging failure should not block login
+            }
+            // --- End Activity Logging ---
+
             header("Location: app.php");
             exit();
         } else {
