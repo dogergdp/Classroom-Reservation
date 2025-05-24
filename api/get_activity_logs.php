@@ -1,7 +1,6 @@
 <?php
 session_start();
-require_once '../config/database.php';
-
+require_once '../db_config.php';
 // Enable detailed error reporting for debugging
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -20,7 +19,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 
 try {
     // Create database connection
-    $conn = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass);
+    $conn = new PDO("mysql:host=$host;dbname=$dbname", $username_db, $password_db);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Query to get activity logs with user information
