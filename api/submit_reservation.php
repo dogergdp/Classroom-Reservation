@@ -99,7 +99,20 @@ try {
     $stmt->execute();
     
     $reservationId = $conn->lastInsertId();
-    
+
+    // --- Activity Logging: Store reservation creation in activity_logs table ---
+    try {
+        $logStmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (:user_id, :action, :details, :action_type)");
+        $logStmt->bindValue(':user_id', $_SESSION['user_id']);
+        $logStmt->bindValue(':action', 'Create reservation');
+        $logStmt->bindValue(':details', 'Reservation submitted for Room ' . $data['room'] . ' on ' . $data['date'] . ' at ' . $data['startTime'] . ' (' . $data['course'] . ' - ' . $data['section'] . ')');
+        $logStmt->bindValue(':action_type', 'reservation');
+        $logStmt->execute();
+    } catch (Exception $logEx) {
+        // Logging failure should not block reservation
+    }
+    // --- End Activity Logging ---
+
     $encryption_key = getenv('CLASSROOM_APP_KEY');
     $first = $user['first_name'] ? decryptData($user['first_name'], $encryption_key) : '';
     $middle = $user['middle_name'] ? decryptData($user['middle_name'], $encryption_key) : '';

@@ -118,6 +118,19 @@ try {
     $last = $professor['last_name'] ? decryptData($professor['last_name'], $encryption_key) : '';
     $professor_name = trim($first . ' ' . ($middle ? $middle . ' ' : '') . $last);
     
+    // --- Activity Logging: Store reservation approval in activity_logs table ---
+    try {
+        $logStmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (:user_id, :action, :details, :action_type)");
+        $logStmt->bindValue(':user_id', $_SESSION['user_id']);
+        $logStmt->bindValue(':action', 'Approve reservation');
+        $logStmt->bindValue(':details', 'Reservation approved for Room ' . $reservation['room'] . ' on ' . $reservation['reservation_date'] . ' at ' . $reservation['start_time'] . ' (' . $reservation['course'] . ' - ' . $reservation['section'] . ')');
+        $logStmt->bindValue(':action_type', 'reservation');
+        $logStmt->execute();
+    } catch (Exception $logEx) {
+        // Logging failure should not block approval
+    }
+    // --- End Activity Logging ---
+
     echo json_encode([
         'success' => true, 
         'message' => 'Reservation approved successfully',

@@ -153,6 +153,23 @@ try {
         ];
     }
     
+    // --- Activity Logging: Store reservation status update in activity_logs table ---
+    try {
+        $logStmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (:user_id, :action, :details, :action_type)");
+        $logStmt->bindValue(':user_id', $_SESSION['user_id']);
+        $logStmt->bindValue(':action', ucfirst($status) . ' reservation');
+        $logDetails = 'Reservation ' . $status . ' (ID: ' . $reservationId . ') for Room ' . $reservation['room'] . ' on ' . $reservation['reservation_date'] . ' at ' . $reservation['start_time'];
+        if ($status === 'denied' && $reason) {
+            $logDetails .= '. Reason: ' . $reason;
+        }
+        $logStmt->bindValue(':details', $logDetails);
+        $logStmt->bindValue(':action_type', 'reservation');
+        $logStmt->execute();
+    } catch (Exception $logEx) {
+        // Logging failure should not block status update
+    }
+    // --- End Activity Logging ---
+
     $conn->commit();
     
     $response = ['success' => true, 'status' => $status];

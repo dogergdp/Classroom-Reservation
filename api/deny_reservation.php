@@ -27,11 +27,25 @@ try {
         SET status = 'denied', denial_reason = :reason, updated_at = NOW() 
         WHERE id = :reservationId
     ");
-    
     $stmt->bindParam(':reservationId', $reservationId);
     $stmt->bindParam(':reason', $reason);
     $result = $stmt->execute();
-    
+
+    // --- Activity Logging: Store reservation denial in activity_logs table ---
+    if ($result) {
+        try {
+            $logStmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (:user_id, :action, :details, :action_type)");
+            $logStmt->bindValue(':user_id', $_SESSION['user_id']);
+            $logStmt->bindValue(':action', 'Deny reservation');
+            $logStmt->bindValue(':details', 'Reservation denied (ID: ' . $reservationId . '). Reason: ' . $reason);
+            $logStmt->bindValue(':action_type', 'reservation');
+            $logStmt->execute();
+        } catch (Exception $logEx) {
+            // Logging failure should not block denial
+        }
+    }
+    // --- End Activity Logging ---
+
     if ($result) {
         echo json_encode(['success' => true, 'message' => 'Reservation denied successfully']);
     } else {
