@@ -294,3 +294,35 @@ function setActiveTab(tab) {
     state.activeTab = tab;
     renderApp();
 }
+
+function logActivity(action, details, actionType = 'general') {
+    console.log(`Logging activity: ${action} - ${details} (${actionType})`);
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('details', details);
+    formData.append('action_type', actionType);
+    
+    // Send to server
+    fetch('api/log_activity.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Activity logged successfully:', data);
+        } else {
+            console.error('Failed to log activity:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error logging activity:', error);
+    });
+}
+
+// Example usages:
+// Login: logActivity('User login', 'User logged in successfully', 'login');
+// Reservation: logActivity('Create reservation', 'Room 101 reserved for May 25, 2025', 'reservation');
+// User management: logActivity('Create user', 'New user account created: johndoe', 'user');

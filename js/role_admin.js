@@ -10,10 +10,20 @@ function setupRoleEventListeners() {
     if (state.activeTab === 'users' && (!state.users || state.users.length === 0)) {
         fetchUsers();
     }
+    
+    // Fetch activity logs if we're on the logs tab
+    if (state.activeTab === 'logs' && (!state.activityLogs || state.activityLogs.length === 0)) {
+        fetchActivityLogs();
+    }
 
     // Initialize users array if it doesn't exist in the state
     if (!state.users) {
         state.users = [];
+    }
+    
+    // Initialize activity logs array if it doesn't exist in the state
+    if (!state.activityLogs) {
+        state.activityLogs = [];
     }
 
     // Set up tab event handlers for dynamic content
@@ -24,6 +34,9 @@ function setupRoleEventListeners() {
                 const tabName = this.getAttribute('data-tab');
                 if (tabName === 'users' && (!state.users || state.users.length === 0)) {
                     fetchUsers();
+                }
+                if (tabName === 'logs' && (!state.activityLogs || state.activityLogs.length === 0)) {
+                    fetchActivityLogs();
                 }
             });
         });
@@ -99,6 +112,75 @@ function fetchUsers() {
         });
 }
 
+function fetchActivityLogs() {
+    console.log("Fetching activity logs from server...");
+
+    // Set loading state
+    state.isLoadingLogs = true;
+
+    // Show loading state only if on logs tab
+    if (state.activeTab === 'logs') {
+        const logsTableBody = document.getElementById('logs-table-body');
+        if (logsTableBody) {
+            logsTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading activity logs...</td></tr>';
+        }
+    }
+
+    // Add a timestamp to prevent caching
+    const timestamp = new Date().getTime();
+
+    fetch(`api/get_activity_logs.php?t=${timestamp}`)
+        .then(response => {
+            console.log("API Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("API Response data:", data);
+            state.isLoadingLogs = false;
+            if (data.success) {
+                // Store logs in state
+                state.activityLogs = data.logs;
+                console.log("Activity logs loaded:", state.activityLogs.length);
+
+                // Only re-render if still on logs tab
+                if (state.activeTab === 'logs') {
+                    renderApp();
+                }
+            } else {
+                console.error('Error fetching activity logs:', data.error);
+                showNotification('Failed to load activity logs: ' + data.error, 'error');
+
+                // Update the table with the error only if on logs tab
+                if (state.activeTab === 'logs') {
+                    const logsTableBody = document.getElementById('logs-table-body');
+                    if (logsTableBody) {
+                        logsTableBody.innerHTML = `<tr><td colspan="4" class="text-center text-red-500 py-4">
+                            <i class="fas fa-exclamation-circle mr-2"></i> Failed to load activity logs: ${data.error}
+                        </td></tr>`;
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            state.isLoadingLogs = false;
+            console.error('Network error when fetching activity logs:', error);
+            showNotification('Network error when loading activity logs', 'error');
+
+            // Update the table with the error only if on logs tab
+            if (state.activeTab === 'logs') {
+                const logsTableBody = document.getElementById('logs-table-body');
+                if (logsTableBody) {
+                    logsTableBody.innerHTML = `<tr><td colspan="4" class="text-center text-red-500 py-4">
+                        <i class="fas fa-exclamation-circle mr-2"></i> Failed to load activity logs: ${error.message}
+                    </td></tr>`;
+                }
+            }
+        });
+}
+
 function renderAdminDashboard() {
     let html = `
         <div class="card">
@@ -119,6 +201,9 @@ function renderAdminDashboard() {
                 </div>
                 <div class="tab ${state.activeTab === 'rooms' ? 'active' : ''}" onclick="setActiveTab('rooms')" data-tab="rooms">
                     <i class="fas fa-door-open mr-1"></i> Room Assignments
+                </div>
+                <div class="tab ${state.activeTab === 'logs' ? 'active' : ''}" onclick="setActiveTab('logs')" data-tab="logs">
+                    <i class="fas fa-history mr-1"></i> Activity Logs
                 </div>
             </div>
     `;
@@ -391,6 +476,117 @@ function renderAdminDashboard() {
                 ` : ''}
             </div>
         `;
+    } else if (state.activeTab === 'logs') {
+        html += `
+            <div class="mb-4 flex flex-wrap items-center gap-2">
+                <div class="flex items-center gap-2 flex-1" style="min-width: 250px;">
+                    <div style="position: relative; flex: 1;">
+                        <input
+                            type="text"
+                            placeholder="Search logs..."
+                            id="log-search-input"
+                            class="form-control"
+                            style="padding-left: 36px; width: 250px;"
+                            value="${state.logSearchQuery || ''}"
+                            onkeyup="handleLogSearch(event)"
+                        />
+                        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                    </div>
+                    <select id="log-type-filter" class="form-control" onchange="handleLogTypeFilter(event)">
+                        <option value="" ${!state.logTypeFilter ? 'selected' : ''}>All Activities</option>
+                        <option value="login" ${state.logTypeFilter === 'login' ? 'selected' : ''}>Login/Logout</option>
+                        <option value="user" ${state.logTypeFilter === 'user' ? 'selected' : ''}>User Management</option>
+                        <option value="reservation" ${state.logTypeFilter === 'reservation' ? 'selected' : ''}>Reservations</option>
+                    </select>
+                </div>
+                <button onclick="fetchActivityLogs()" class="btn btn-primary">
+                    <i class="fas fa-sync-alt mr-1"></i> Refresh
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-table-body">
+        `;
+        
+        // Only show loading if actually loading
+        if (state.isLoadingLogs) {
+            html += `
+                <tr>
+                    <td colspan="4" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading activity logs...</td>
+                </tr>
+            `;
+        } else if (state.activityLogs && state.activityLogs.length > 0) {
+            // Filter logs if there is a search query or type filter
+            const searchQuery = state.logSearchQuery || '';
+            const typeFilter = state.logTypeFilter || '';
+            const filteredLogs = state.activityLogs.filter(log =>
+                (typeFilter === '' || log.action_type === typeFilter) &&
+                (
+                    (log.timestamp && log.timestamp.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (log.username && log.username.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (log.action && log.action.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (log.details && log.details.toLowerCase().includes(searchQuery.toLowerCase()))
+                )
+            );
+            
+            if (filteredLogs.length > 0) {
+                filteredLogs.forEach(log => {
+                    // Get a font awesome icon based on action type
+                    let actionIcon = '';
+                    switch (log.action_type) {
+                        case 'login': 
+                            actionIcon = '<i class="fas fa-sign-in-alt text-blue-600 mr-1"></i>';
+                            break;
+                        case 'logout': 
+                            actionIcon = '<i class="fas fa-sign-out-alt text-orange-600 mr-1"></i>';
+                            break;
+                        case 'user': 
+                            actionIcon = '<i class="fas fa-user-edit text-purple-600 mr-1"></i>';
+                            break;
+                        case 'reservation': 
+                            actionIcon = '<i class="fas fa-calendar-plus text-green-600 mr-1"></i>';
+                            break;
+                        default:
+                            actionIcon = '<i class="fas fa-info-circle mr-1"></i>';
+                    }
+                    
+                    html += `
+                        <tr>
+                            <td>${log.timestamp || 'N/A'}</td>
+                            <td>${log.username || 'N/A'}</td>
+                            <td>${actionIcon} ${log.action || 'N/A'}</td>
+                            <td>${log.details || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += `
+                    <tr>
+                        <td colspan="4" class="text-center py-4">No logs match your search.</td>
+                    </tr>
+                `;
+            }
+        } else {
+            html += `
+                <tr>
+                    <td colspan="4" class="text-center py-4">No activity logs found.</td>
+                </tr>
+            `;
+        }
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
     }
     
     html += `</div>`;
@@ -453,9 +649,20 @@ function handleRoleFilter(event) {
     state.userRoleFilter = event.target.value;
     renderApp();
 }
+function handleLogSearch(event) {
+    state.logSearchQuery = event.target.value;
+    renderApp();
+}
+function handleLogTypeFilter(event) {
+    state.logTypeFilter = event.target.value;
+    renderApp();
+}
 
 // Make the new functions accessible globally
 window.fetchUsers = fetchUsers;
 window.handleUserSearch = handleUserSearch;
 window.handleRoleFilter = handleRoleFilter;
+window.fetchActivityLogs = fetchActivityLogs;
+window.handleLogSearch = handleLogSearch;
+window.handleLogTypeFilter = handleLogTypeFilter;
 

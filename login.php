@@ -78,3 +78,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+<script>
+document.getElementById('login-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    // First login
+    const loginFormData = new FormData();
+    loginFormData.append('username', username);
+    loginFormData.append('password', password);
+    
+    fetch('api/login.php', {
+        method: 'POST',
+        body: loginFormData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Explicitly log the activity separately
+            const logFormData = new FormData();
+            logFormData.append('action', 'User login');
+            logFormData.append('details', username + ' logged in successfully');
+            logFormData.append('action_type', 'login');
+            
+            return fetch('api/log_activity.php', {
+                method: 'POST',
+                body: logFormData
+            })
+            .then(() => {
+                // Continue with redirect regardless of logging success
+                window.location.href = 'index.php';
+            })
+            .catch(error => {
+                console.error('Error logging activity:', error);
+                window.location.href = 'index.php'; // Still redirect on log error
+            });
+        } else {
+            // Handle login error
+            alert(data.message || 'Login failed.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+    });
+});
+</script>
