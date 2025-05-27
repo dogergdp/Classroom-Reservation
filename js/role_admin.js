@@ -771,18 +771,18 @@ function openDeleteUserModal(userId, username) {
 function handleChangeRole() {
     const userId = state.editingUser.id;
     const newRole = document.getElementById('new-role-select').value;
-    
+
     if (!newRole) {
         showNotification('Please select a role', 'warning');
         return;
     }
-    
+
     // Show loading state in the modal
     const submitButton = document.getElementById('change-role-submit');
     const originalButtonText = submitButton.innerHTML;
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
-    
+
     // Make API call to change role
     fetch('api/update_user_role.php', {
         method: 'POST',
@@ -796,21 +796,22 @@ function handleChangeRole() {
     })
     .then(response => response.json())
     .then(data => {
+        // Always close the modal after the request finishes
+        state.editingUser = null;
+        renderApp();
+
         if (data.success) {
             showNotification(`User role updated successfully to ${newRole}`, 'success');
-            
+
             // Update the local state
             const userIndex = state.users.findIndex(u => u.id === userId);
             if (userIndex !== -1) {
                 state.users[userIndex].role = newRole;
             }
-            
-            // Close the modal
-            state.editingUser = null;
-            
+
             // Log the activity
-            logActivity('Change user role', `Changed role of user ${state.editingUser.username} to ${newRole}`, 'user');
-            
+            logActivity('Change user role', `Changed role of user ${userId} to ${newRole}`, 'user');
+
             // Refresh users list
             fetchUsers();
         } else {
@@ -820,10 +821,10 @@ function handleChangeRole() {
     .catch(error => {
         console.error('Network error when updating user role:', error);
         showNotification('Network error when updating user role', 'error');
-        
-        // Reset button
-        submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
+
+        // Reset button (modal will be closed anyway)
+        // submitButton.disabled = false;
+        // submitButton.innerHTML = originalButtonText;
     });
 }
 

@@ -1,10 +1,12 @@
 <?php
 // Include database connection
-require_once '../config/database.php';
-require_once '../config/auth.php';
+require_once '../db_config.php';
+$conn = getDbConnection();
+
 
 // Check if user is logged in and is an admin
-if (!isLoggedIn() || !isAdmin()) {
+session_start();
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header('Content-Type: application/json');
     echo json_encode([
         'success' => false, 
@@ -43,20 +45,24 @@ if (!in_array($newRole, $validRoles)) {
 
 try {
     // Update the user role in the database
-    $stmt = $conn->prepare("UPDATE users SET role = ? WHERE id = ?");
-    $stmt->bind_param("si", $newRole, $userId);
+    $stmt = $conn->prepare("UPDATE users SET role = :role WHERE id = :id");
+    $stmt->bindParam(':role', $newRole);
+    $stmt->bindParam(':id', $userId, PDO::PARAM_INT);
     $stmt->execute();
-    
-    if ($stmt->affected_rows > 0) {
+
+    if ($stmt->rowCount() > 0) {
         // Log the activity
         $currentUserId = $_SESSION['user_id'];
-        $stmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (:user_id, :action, :details, :action_type)");
         $action = "Update user role";
         $details = "Changed user ID $userId to role: $newRole";
         $actionType = "user";
-        $stmt->bind_param("isss", $currentUserId, $action, $details, $actionType);
+        $stmt->bindParam(':user_id', $currentUserId, PDO::PARAM_INT);
+        $stmt->bindParam(':action', $action);
+        $stmt->bindParam(':details', $details);
+        $stmt->bindParam(':action_type', $actionType);
         $stmt->execute();
-        
+
         header('Content-Type: application/json');
         echo json_encode([
             'success' => true, 
@@ -77,5 +83,5 @@ try {
     ]);
 }
 
-$conn->close();
+
 ?>
