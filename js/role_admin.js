@@ -287,6 +287,7 @@ function renderAdminDashboard() {
                             <th>Email</th>
                             <th>Role</th>
                             <th>Department</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="users-table-body">
@@ -296,7 +297,7 @@ function renderAdminDashboard() {
         if (state.isLoadingUsers) {
             html += `
                 <tr>
-                    <td colspan="5" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading users...</td>
+                    <td colspan="7" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading users...</td>
                 </tr>
             `;
         } else if (state.users && state.users.length > 0) {
@@ -343,20 +344,32 @@ function renderAdminDashboard() {
                             <td>${user.email || 'N/A'}</td>
                             <td>${roleIcon} ${user.role}</td>
                             <td>${user.department_name || 'N/A'}</td>
+                            <td>
+                                <div class="flex space-x-2">
+                                    <button onclick="openChangeRoleModal(${user.id}, '${user.username}', '${user.role}')" class="btn btn-primary" style="font-size: 12px; padding: 4px 8px;">
+                                        <i class="fas fa-user-edit"></i> Change Role
+                                    </button>
+                                    ${user.role !== 'admin' ? `
+                                        <button onclick="openDeleteUserModal(${user.id}, '${user.username}')" class="btn btn-danger" style="font-size: 12px; padding: 4px 8px;">
+                                            <i class="fas fa-user-times"></i> Delete
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </td>
                         </tr>
                     `;
                 });
             } else {
                 html += `
                     <tr>
-                        <td colspan="5" class="text-center py-4">No users match your search.</td>
+                        <td colspan="7" class="text-center py-4">No users match your search.</td>
                     </tr>
                 `;
             }
         } else {
             html += `
                 <tr>
-                    <td colspan="5" class="text-center py-4">No users found.</td>
+                    <td colspan="7" class="text-center py-4">No users found.</td>
                 </tr>
             `;
         }
@@ -590,6 +603,71 @@ function renderAdminDashboard() {
     }
     
     html += `</div>`;
+    
+    // Add modals for user management
+    if (state.editingUser) {
+        html += `
+            <div class="modal-backdrop">
+                <div class="modal animate-fade-in" onclick="event.stopPropagation()">
+                    <h3 class="text-lg font-semibold mb-4 pb-2 border-b flex items-center">
+                        <i class="fas fa-user-edit mr-2 text-blue-600"></i> Change User Role
+                    </h3>
+                    <p class="mb-4 text-black">
+                        Changing role for user: <span class="font-bold">${state.editingUser.username}</span>
+                    </p>
+                    <div class="space-y-3">
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-black">Current Role:</label>
+                            <div class="bg-gray-100 p-2 rounded text-black">${state.editingUser.currentRole}</div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-black">New Role:</label>
+                            <select id="new-role-select" class="form-control">
+                                <option value="">Select a role</option>
+                                <option value="student">Student</option>
+                                <option value="professor">Professor</option>
+                                <option value="deptHead">Department Head</option>
+                                <option value="admin">Administrator</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex justify-between gap-4 mt-6">
+                        <button onclick="cancelUserAction()" class="btn btn-secondary flex-1">
+                            <i class="fas fa-times mr-1"></i> Cancel
+                        </button>
+                        <button id="change-role-submit" onclick="handleChangeRole()" class="btn btn-primary flex-1">
+                            <i class="fas fa-save mr-1"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (state.deletingUser) {
+        html += `
+            <div class="modal-backdrop">
+                <div class="modal animate-fade-in" onclick="event.stopPropagation()">
+                    <h3 class="text-lg font-semibold mb-4 pb-2 border-b flex items-center">
+                        <i class="fas fa-user-times mr-2 text-red-600"></i> Delete User
+                    </h3>
+                    <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-4">
+                        <p class="font-medium">Warning: This action cannot be undone.</p>
+                        <p>You are about to delete user: <span class="font-bold">${state.deletingUser.username}</span></p>
+                    </div>
+                    <div class="flex justify-between gap-4 mt-6">
+                        <button onclick="cancelUserAction()" class="btn btn-secondary flex-1">
+                            <i class="fas fa-times mr-1"></i> Cancel
+                        </button>
+                        <button id="delete-user-submit" onclick="handleDeleteUser()" class="btn btn-danger flex-1">
+                            <i class="fas fa-trash-alt mr-1"></i> Delete User
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
     return html;
 }
 
@@ -665,4 +743,148 @@ window.handleRoleFilter = handleRoleFilter;
 window.fetchActivityLogs = fetchActivityLogs;
 window.handleLogSearch = handleLogSearch;
 window.handleLogTypeFilter = handleLogTypeFilter;
+
+// Add these new functions for user management at the end of the file
+
+// Function to open the change role modal
+function openChangeRoleModal(userId, username, currentRole) {
+    state.editingUser = {
+        id: userId,
+        username: username,
+        currentRole: currentRole
+    };
+    
+    renderApp(); // Re-render to show the modal
+}
+
+// Function to open the delete user modal
+function openDeleteUserModal(userId, username) {
+    state.deletingUser = {
+        id: userId,
+        username: username
+    };
+    
+    renderApp(); // Re-render to show the modal
+}
+
+// Function to handle role change
+function handleChangeRole() {
+    const userId = state.editingUser.id;
+    const newRole = document.getElementById('new-role-select').value;
+    
+    if (!newRole) {
+        showNotification('Please select a role', 'warning');
+        return;
+    }
+    
+    // Show loading state in the modal
+    const submitButton = document.getElementById('change-role-submit');
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
+    
+    // Make API call to change role
+    fetch('api/update_user_role.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            userId: userId,
+            newRole: newRole
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`User role updated successfully to ${newRole}`, 'success');
+            
+            // Update the local state
+            const userIndex = state.users.findIndex(u => u.id === userId);
+            if (userIndex !== -1) {
+                state.users[userIndex].role = newRole;
+            }
+            
+            // Close the modal
+            state.editingUser = null;
+            
+            // Log the activity
+            logActivity('Change user role', `Changed role of user ${state.editingUser.username} to ${newRole}`, 'user');
+            
+            // Refresh users list
+            fetchUsers();
+        } else {
+            showNotification('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Network error when updating user role:', error);
+        showNotification('Network error when updating user role', 'error');
+        
+        // Reset button
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+    });
+}
+
+// Function to handle user deletion
+function handleDeleteUser() {
+    const userId = state.deletingUser.id;
+    
+    // Show loading state in the modal
+    const submitButton = document.getElementById('delete-user-submit');
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Deleting...';
+    
+    // Make API call to delete user
+    fetch('api/delete_user.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            userId: userId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('User deleted successfully', 'success');
+            
+            // Update local state by removing the user
+            state.users = state.users.filter(u => u.id !== userId);
+            
+            // Close the modal
+            state.deletingUser = null;
+            
+            // Log the activity
+            logActivity('Delete user', `Deleted user ${state.deletingUser.username}`, 'user');
+            
+            // Refresh the UI
+            renderApp();
+        } else {
+            showNotification('Error: ' + data.error, 'error');
+            
+            // Reset button
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+        }
+    })
+    .catch(error => {
+        console.error('Network error when deleting user:', error);
+        showNotification('Network error when deleting user', 'error');
+        
+        // Reset button
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+    });
+}
+
+// Function to cancel modals
+function cancelUserAction() {
+    state.editingUser = null;
+    state.deletingUser = null;
+    renderApp();
+}
 
