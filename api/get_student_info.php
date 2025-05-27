@@ -12,7 +12,8 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
 }
 
 // Include database connection
-require_once '../includes/db_connect.php';
+require_once '../db_config.php';
+$conn = getDbConnection();
 
 try {
     // Query to get the latest student information
