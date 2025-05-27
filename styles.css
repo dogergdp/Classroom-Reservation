@@ -552,12 +552,12 @@ button {
 }
 
 .btn-success {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: #10b981;
+  color: white;
 }
 
 .btn-success:hover {
-  background-color: #a7f3d0;
+  background-color: #059669;
 }
 
 .btn-danger {

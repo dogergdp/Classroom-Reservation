@@ -499,9 +499,14 @@ function renderAdminDashboard() {
                         <option value="reservation" ${state.logTypeFilter === 'reservation' ? 'selected' : ''}>Reservations</option>
                     </select>
                 </div>
-                <button onclick="fetchActivityLogs()" class="btn btn-primary">
-                    <i class="fas fa-sync-alt mr-1"></i> Refresh
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="fetchActivityLogs()" class="btn btn-primary">
+                        <i class="fas fa-sync-alt mr-1"></i> Refresh
+                    </button>
+                    <button onclick="downloadActivityLogs()" class="btn btn-success">
+                        <i class="fas fa-download mr-1"></i> Download Logs
+                    </button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -658,6 +663,66 @@ function handleLogTypeFilter(event) {
     renderApp();
 }
 
+function downloadActivityLogs() {
+    console.log("Downloading activity logs...");
+    
+    // Check if we have logs to download
+    if (!state.activityLogs || !Array.isArray(state.activityLogs) || state.activityLogs.length === 0) {
+        showNotification('No logs available to download', 'error');
+        return;
+    }
+    
+    // Apply the same filters as currently shown in the UI
+    const searchQuery = state.logSearchQuery || '';
+    const typeFilter = state.logTypeFilter || '';
+    const filteredLogs = state.activityLogs.filter(log =>
+        (typeFilter === '' || log.action_type === typeFilter) &&
+        (
+            (log.timestamp && log.timestamp.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (log.username && log.username.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (log.action && log.action.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (log.details && log.details.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+    );
+    
+    if (filteredLogs.length === 0) {
+        showNotification('No logs match your current filters', 'error');
+        return;
+    }
+    
+    // Create CSV content
+    let csvContent = "Timestamp,User ID,Username,Action,Details,Action Type\n";
+    
+    filteredLogs.forEach(log => {
+        // Replace commas in text fields with spaces to avoid CSV formatting issues
+        const timestamp = log.timestamp || 'N/A';
+        const userId = log.user_id || 'N/A';
+        const username = (log.username || 'N/A').replace(/,/g, ' ');
+        const action = (log.action || 'N/A').replace(/,/g, ' ');
+        const details = (log.details || 'N/A').replace(/,/g, ' ').replace(/\n/g, ' ');
+        const actionType = (log.action_type || 'N/A').replace(/,/g, ' ');
+        
+        // Add row to CSV
+        csvContent += `"${timestamp}","${userId}","${username}","${action}","${details}","${actionType}"\n`;
+    });
+    
+    // Create and download the file
+    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    
+    // Create a filename with current date/time
+    const now = new Date();
+    const filename = `activity_logs_${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}.csv`;
+    
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification(`Downloaded ${filteredLogs.length} log entries`, 'success');
+}
+
 // Make the new functions accessible globally
 window.fetchUsers = fetchUsers;
 window.handleUserSearch = handleUserSearch;
@@ -665,4 +730,5 @@ window.handleRoleFilter = handleRoleFilter;
 window.fetchActivityLogs = fetchActivityLogs;
 window.handleLogSearch = handleLogSearch;
 window.handleLogTypeFilter = handleLogTypeFilter;
+window.downloadActivityLogs = downloadActivityLogs;
 
