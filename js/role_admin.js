@@ -490,6 +490,12 @@ function renderAdminDashboard() {
             </div>
         `;
     } else if (state.activeTab === 'logs') {
+        // Initialize pagination state if not exists
+        if (typeof state.logsCurrentPage === 'undefined') {
+            state.logsCurrentPage = 1;
+            state.logsPerPage = 10;
+        }
+        
         html += `
             <div class="mb-4 flex flex-wrap items-center gap-2">
                 <div class="flex items-center gap-2 flex-1" style="min-width: 250px;">
@@ -535,13 +541,13 @@ function renderAdminDashboard() {
         `;
         
         // Only show loading if actually loading
-            if (state.isLoadingLogs) {
-                html += `
-                    <tr>
-                        <td colspan="4" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading activity logs...</td>
-                    </tr>
-                `;
-            } else if (Array.isArray(state.activityLogs) && state.activityLogs.length > 0) {
+        if (state.isLoadingLogs) {
+            html += `
+                <tr>
+                    <td colspan="4" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i> Loading activity logs...</td>
+                </tr>
+            `;
+        } else if (Array.isArray(state.activityLogs) && state.activityLogs.length > 0) {
             // Filter logs if there is a search query or type filter
             const searchQuery = state.logSearchQuery || '';
             const typeFilter = state.logTypeFilter || '';
@@ -556,7 +562,22 @@ function renderAdminDashboard() {
             );
             
             if (filteredLogs.length > 0) {
-                filteredLogs.forEach(log => {
+                // Calculate pagination values
+                const totalPages = Math.ceil(filteredLogs.length / state.logsPerPage);
+                
+                // Reset current page if it's higher than total pages
+                if (state.logsCurrentPage > totalPages) {
+                    state.logsCurrentPage = 1;
+                }
+                
+                // Calculate the slice indexes for the current page
+                const startIndex = (state.logsCurrentPage - 1) * state.logsPerPage;
+                const endIndex = startIndex + state.logsPerPage;
+                
+                // Get only logs for current page
+                const currentPageLogs = filteredLogs.slice(startIndex, endIndex);
+                
+                currentPageLogs.forEach(log => {
                     // Get a font awesome icon based on action type
                     let actionIcon = '';
                     switch (log.action_type) {
@@ -585,11 +606,43 @@ function renderAdminDashboard() {
                         </tr>
                     `;
                 });
+                
+                // Add pagination controls
+                html += `
+                    </tbody>
+                </table>
+                <div class="flex justify-between items-center mt-4 p-2 bg-gray-50 rounded">
+                    <div class="text-sm text-gray-600">
+                        Showing ${startIndex + 1}-${Math.min(endIndex, filteredLogs.length)} of ${filteredLogs.length} logs
+                    </div>
+                    <div class="flex gap-2">
+                        <button 
+                            onclick="changeLogsPage('prev')" 
+                            class="btn btn-secondary ${state.logsCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}"
+                            ${state.logsCurrentPage === 1 ? 'disabled' : ''}
+                        >
+                            <i class="fas fa-chevron-left mr-1"></i> Previous
+                        </button>
+                        <span class="px-3 py-2 bg-white border rounded text-gray-700">
+                            ${state.logsCurrentPage} of ${totalPages}
+                        </span>
+                        <button 
+                            onclick="changeLogsPage('next')" 
+                            class="btn btn-secondary ${state.logsCurrentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''}"
+                            ${state.logsCurrentPage >= totalPages ? 'disabled' : ''}
+                        >
+                            Next <i class="fas fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+                `;
             } else {
                 html += `
                     <tr>
                         <td colspan="4" class="text-center py-4">No logs match your search.</td>
                     </tr>
+                    </tbody>
+                </table>
                 `;
             }
         } else if (Array.isArray(state.activityLogs) && state.activityLogs.length === 0) {
@@ -597,14 +650,15 @@ function renderAdminDashboard() {
                 <tr>
                     <td colspan="4" class="text-center py-4">No activity logs found.</td>
                 </tr>
+                </tbody>
+                </table>
+            `;
+        } else {
+            html += `
+                </tbody>
+                </table>
             `;
         }
-        
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
     }
     
     html += `</div>`;
@@ -734,10 +788,12 @@ function handleRoleFilter(event) {
 }
 function handleLogSearch(event) {
     state.logSearchQuery = event.target.value;
+    state.logsCurrentPage = 1; // Reset to first page when searching
     renderApp();
 }
 function handleLogTypeFilter(event) {
     state.logTypeFilter = event.target.value;
+    state.logsCurrentPage = 1; // Reset to first page when filtering
     renderApp();
 }
 
@@ -952,6 +1008,34 @@ function handleDeleteUser() {
 function cancelUserAction() {
     state.editingUser = null;
     state.deletingUser = null;
+    renderApp();
+}
+
+// Add function to change log pages
+function changeLogsPage(direction) {
+    if (direction === 'prev' && state.logsCurrentPage > 1) {
+        state.logsCurrentPage--;
+    } else if (direction === 'next') {
+        // Calculate total pages
+        const searchQuery = state.logSearchQuery || '';
+        const typeFilter = state.logTypeFilter || '';
+        const filteredLogs = state.activityLogs.filter(log =>
+            (typeFilter === '' || log.action_type === typeFilter) &&
+            (
+                (log.timestamp && log.timestamp.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (log.username && log.username.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (log.action && log.action.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (log.details && log.details.toLowerCase().includes(searchQuery.toLowerCase()))
+            )
+        );
+        
+        const totalPages = Math.ceil(filteredLogs.length / state.logsPerPage);
+        
+        if (state.logsCurrentPage < totalPages) {
+            state.logsCurrentPage++;
+        }
+    }
+    
     renderApp();
 }
 
