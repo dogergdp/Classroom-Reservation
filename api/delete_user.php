@@ -1,9 +1,7 @@
 <?php
-// Include database connection
 require_once '../config/database.php';
 require_once '../config/auth.php';
 
-// Check if user is logged in and is an admin
 if (!isLoggedIn() || !isAdmin()) {
     header('Content-Type: application/json');
     echo json_encode([
@@ -13,11 +11,9 @@ if (!isLoggedIn() || !isAdmin()) {
     exit;
 }
 
-// Get JSON data from request
 $json = file_get_contents('php://input');
 $data = json_decode($json);
 
-// Validate data
 if (!isset($data->userId)) {
     header('Content-Type: application/json');
     echo json_encode([
@@ -29,7 +25,6 @@ if (!isset($data->userId)) {
 
 $userId = intval($data->userId);
 
-// Don't allow deletion of the current user
 if ($userId === $_SESSION['user_id']) {
     header('Content-Type: application/json');
     echo json_encode([
@@ -40,10 +35,9 @@ if ($userId === $_SESSION['user_id']) {
 }
 
 try {
-    // Begin transaction
+
     $conn->begin_transaction();
     
-    // First, get user information for logging
     $stmt = $conn->prepare("SELECT username FROM users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
@@ -59,24 +53,21 @@ try {
         ]);
         exit;
     }
-    
-    // Delete user's reservations
+
     $stmt = $conn->prepare("DELETE FROM reservations WHERE professor_id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     
-    // Delete user's room assignments
     $stmt = $conn->prepare("DELETE FROM room_assignments WHERE professor_id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     
-    // Finally delete the user
     $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     
     if ($stmt->affected_rows > 0) {
-        // Log the activity
+
         $currentUserId = $_SESSION['user_id'];
         $stmt = $conn->prepare("INSERT INTO activity_logs (user_id, action, details, action_type) VALUES (?, ?, ?, ?)");
         $action = "Delete user";
@@ -85,7 +76,6 @@ try {
         $stmt->bind_param("isss", $currentUserId, $action, $details, $actionType);
         $stmt->execute();
         
-        // Commit transaction
         $conn->commit();
         
         header('Content-Type: application/json');

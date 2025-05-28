@@ -2,13 +2,11 @@
 session_start();
 header('Content-Type: application/json');
 
-// Check if user is logged in and has appropriate role
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['deptHead', 'admin'])) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
     exit;
 }
 
-// Database connection
 require_once '../db_connect.php';
 
 function decryptData($encrypted, $key) {
@@ -23,8 +21,6 @@ function decryptData($encrypted, $key) {
 try {
     $departmentId = $_SESSION['department_id'] ?? null;
     
-    // For department head, get professors from their department
-    // For admin, get all professors
     if ($_SESSION['role'] === 'admin') {
         $stmt = $conn->prepare("
         SELECT id, username, first_name, middle_name, last_name, email, department_id 
