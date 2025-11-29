@@ -18,11 +18,8 @@
 - [User Roles](#user-roles)
 - [API Endpoints](#api-endpoints)
 - [Security Implementation](#security-implementation)
-- [Screenshots](#screenshots)
-- [Contributors](#contributors)
 - [Learning Outcomes](#learning-outcomes)
 - [License](#license)
-- [Contact](#contact)
 
 ## 🎯 Overview
 
