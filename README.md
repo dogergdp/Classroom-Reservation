@@ -1,173 +1,69 @@
-# 🔐 Classroom Reservation System
+# Classroom Reservation System
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![PHP](https://img.shields.io/badge/PHP-7.4+-blue.svg)](https://www.php.net/)
-[![MySQL](https://img.shields.io/badge/MySQL-5.7+-orange.svg)](https://www.mysql.com/)
-[![Security](https://img.shields.io/badge/Security-Focused-red.svg)](https://github.com)
+A secure, role-based classroom reservation management system developed as a university group project. Built with PHP and MySQL, this application provides comprehensive booking management with robust security features and an intuitive interface.
 
-> **A secure, role-based classroom reservation management system developed as a university group project to demonstrate cybersecurity best practices and object-oriented design principles.**
+## About This Project
 
-## 📋 Table of Contents
-- [Overview](#overview)
-- [Cybersecurity Features](#cybersecurity-features)
-- [Architecture & Design](#architecture--design)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Installation](#installation)
-- [Database Schema](#database-schema)
-- [User Roles](#user-roles)
-- [API Endpoints](#api-endpoints)
-- [Security Implementation](#security-implementation)
-- [Learning Outcomes](#learning-outcomes)
-- [License](#license)
+This application was developed as a collaborative university project to demonstrate proficiency in cybersecurity principles, object-oriented programming, and secure web application development. The project showcases modern security practices, including role-based access control, SQL injection prevention, and secure session management.
 
-## 🎯 Overview
+## Features
 
-The **Classroom Reservation System** is an enterprise-grade web application designed for educational institutions to manage classroom bookings efficiently. This project was developed as part of a **university group project** with a strong emphasis on **cybersecurity principles** and **object-oriented programming** paradigms.
+### Core Reservation Operations
+- **Reservation Management**: Submit, approve, and deny classroom reservation requests
+- **Room Assignment**: 
+  - Direct room assignment by department heads
+  - Conflict detection and availability checking
+  - Multi-hour booking support
+- **Real-time Availability**: View classroom schedules and availability in real-time
+- **Reservation Tracking**: Monitor reservation status (pending/approved/denied) with detailed history
 
-The system implements a robust **role-based access control (RBAC)** mechanism, secure session management, and follows OWASP security guidelines to prevent common vulnerabilities such as SQL injection, XSS attacks, and CSRF exploits.
+### Role-Based Access Control
+- **Student Role**:
+  - View classroom schedules and availability
+  - Track personal reservation requests
+- **Professor Role**:
+  - Submit classroom reservation requests
+  - View reservation history and status
+  - Receive approval/denial notifications
+- **Department Head Role**:
+  - Review and approve/deny reservation requests
+  - Assign classrooms directly to professors
+  - Monitor department-wide classroom usage
+- **Administrator Role**:
+  - Complete user management (create, update, delete accounts)
+  - System configuration and department management
+  - Global oversight of all reservations
 
-### 🎓 Academic Purpose
-This project showcases:
-- **Secure software development lifecycle (SDLC)**
-- **Object-oriented design patterns**
-- **Database security and encryption**
-- **Authentication and authorization mechanisms**
-- **Input validation and sanitization**
-- **Session management and secure communication**
+### Security & Authentication
+- **SHA-1 Password Hashing**: Secure password storage with hashing
+- **Session Management**: Secure session handling with automatic timeout
+- **Protected API Endpoints**: Role verification on all API calls
+- **SQL Injection Prevention**: PDO prepared statements for all database queries
+- **XSS Prevention**: Input sanitization and output encoding
+- **AES-128-CBC Encryption**: Secure data transmission for sensitive information
 
-## 🔐 Cybersecurity Features
-
-Our system implements multiple layers of security:
-
-### 1. **Authentication & Authorization**
-- ✅ **SHA-1 Password Hashing** with salting
-- ✅ **Role-Based Access Control (RBAC)** - 4 distinct user roles
-- ✅ **Session Management** with secure session tokens
-- ✅ **Automatic Session Timeout** and invalidation
-- ✅ **Protected API Endpoints** with role verification
-
-### 2. **Data Protection**
-- ✅ **Prepared Statements (PDO)** to prevent SQL injection
-- ✅ **Input Validation & Sanitization** on all user inputs
-- ✅ **AES-128-CBC Encryption** for sensitive data transmission
-- ✅ **XSS Prevention** through output encoding
-- ✅ **CSRF Token Protection** (planned enhancement)
-
-### 3. **Database Security**
-- ✅ **Foreign Key Constraints** for referential integrity
-- ✅ **Cascade Delete Operations** for data consistency
-- ✅ **Indexed Queries** for performance optimization
-- ✅ **Database Connection Security** with PDO exceptions
-
-### 4. **Access Control**
-- ✅ **Server-side validation** on all requests
-- ✅ **API endpoint protection** with session checks
-- ✅ **Role-specific functionality** segregation
-- ✅ **Unauthorized access prevention** mechanisms
-
-## 🏗️ Architecture & Design
-
-### Object-Oriented Design Principles
-
-The system follows **SOLID principles** and implements:
-
-#### **Separation of Concerns**
-```
-├── Presentation Layer    (HTML/CSS/JavaScript)
-├── Business Logic Layer  (PHP API)
-├── Data Access Layer     (PDO/MySQL)
-└── Database Layer        (MySQL Schema)
-```
-
-#### **Design Patterns Used**
-- **MVC Pattern**: Separation of model, view, and controller logic
-- **Factory Pattern**: Database connection management (`getDbConnection()`)
-- **Singleton Pattern**: Session management
-- **Strategy Pattern**: Role-specific rendering and behavior
-- **Repository Pattern**: Database operations abstraction
-
-#### **Class Structure** (Object-Oriented Approach)
-```php
-// Example: Database Connection Factory
-class DatabaseConnection {
-    private static $instance = null;
-    
-    public static function getInstance() {
-        if (self::$instance === null) {
-            self::$instance = new PDO(...);
-        }
-        return self::$instance;
-    }
-}
-
-// Example: User Model with Encapsulation
-class User {
-    private $id;
-    private $username;
-    private $role;
-    private $department_id;
-    
-    public function hasPermission($action) { ... }
-    public function authenticate($password) { ... }
-}
-
-// Example: Reservation Service (Business Logic)
-class ReservationService {
-    public function createReservation($data) { ... }
-    public function approveReservation($id) { ... }
-    public function validateAvailability($room, $date, $time) { ... }
-}
-```
-
-## ✨ Features
-
-### 👨‍🎓 Student Features
-- View available classrooms and schedules
-- Request classroom reservations
-- Track reservation status (pending/approved/denied)
-- Receive notifications for reservation updates
-
-### 👨‍🏫 Professor Features
-- Submit classroom reservation requests
-- View personal reservation history
-- Receive approval/denial notifications with reasons
-- Check real-time room availability
-
-### 👔 Department Head Features
-- Review and approve/deny reservation requests
-- Assign classrooms directly to professors
-- Monitor department-wide classroom usage
-- Generate reservation reports
-
-### 👨‍💼 Administrator Features
-- **User Management**: Create, update, delete user accounts
-- **System Configuration**: Manage departments and roles
-- **Audit Trail**: View all system activities
-- **Global Oversight**: Monitor all reservations across departments
-
-## 💻 Technology Stack
+## Technology Stack
 
 ### Backend
-- **PHP 7.4+** - Server-side scripting
-- **MySQL/MariaDB** - Relational database
-- **PDO** - Database abstraction layer
+- **PHP 7.4+**: Server-side scripting language
+- **MySQL/MariaDB**: Relational database management system
+- **PDO**: Database abstraction layer for secure queries
 
 ### Frontend
-- **HTML5 & CSS3** - Modern markup and styling
-- **Vanilla JavaScript (ES6+)** - Dynamic UI interactions
-- **Font Awesome** - Icon library
+- **HTML5 & CSS3**: Modern markup and styling
+- **Vanilla JavaScript (ES6+)**: Dynamic UI interactions
+- **Font Awesome**: Icon library for enhanced UI
 
 ### Security
-- **OpenSSL** - Data encryption (AES-128-CBC)
-- **SHA-1 Hashing** - Password security
-- **PDO Prepared Statements** - SQL injection prevention
+- **OpenSSL**: Data encryption (AES-128-CBC)
+- **SHA-1 Hashing**: Password security
+- **PDO Prepared Statements**: SQL injection prevention
 
 ### Development Environment
-- **XAMPP/WAMP** - Local server environment
-- **phpMyAdmin** - Database management
+- **XAMPP/WAMP**: Local server environment
+- **phpMyAdmin**: Database management interface
 
-## 🚀 Installation
+## Setup Instructions
 
 ### Prerequisites
 - PHP 7.4 or higher
@@ -175,25 +71,28 @@ class ReservationService {
 - Apache/Nginx web server
 - XAMPP/WAMP (recommended for local development)
 
-### Step 1: Clone the Repository
+### Installation
+
+1. Clone the repository
 ```bash
 git clone https://github.com/dogergdp/Classroom-Reservation.git
 cd Classroom-Reservation
 ```
 
-### Step 2: Database Setup
-1. Start your MySQL server (via XAMPP/WAMP)
-2. Open phpMyAdmin and create a database:
+2. Install and start your local server (XAMPP/WAMP)
+   - Start Apache and MySQL services
+
+3. Create the database
+   - Open phpMyAdmin (http://localhost/phpmyadmin)
+   - Create a new database named `classroom_reservation`
+   - Import the SQL schema:
 ```sql
 CREATE DATABASE classroom_reservation;
 ```
-3. Import the database schema:
-```bash
-mysql -u root -p classroom_reservation < classroom_reservation.sql
-```
+   - Import `classroom_reservation.sql` file
 
-### Step 3: Configure Database Connection
-Edit `db_config.php` with your database credentials:
+4. Configure database connection
+   - Edit `db_config.php` with your credentials:
 ```php
 <?php
 $host = "localhost";
@@ -203,16 +102,13 @@ $password_db = "";  // Your MySQL password
 ?>
 ```
 
-### Step 4: Deploy to Web Server
-- Copy the project folder to your web server root:
-  - **XAMPP**: `C:\xampp\htdocs\`
-  - **WAMP**: `C:\wamp\www\`
+5. Deploy to web server
+   - Copy the project folder to your server root:
+     - XAMPP: `C:\xampp\htdocs\`
+     - WAMP: `C:\wamp\www\`
 
-### Step 5: Access the Application
-Open your browser and navigate to:
-```
-http://localhost/Classroom-Reservation/
-```
+6. Access the application
+   - Open browser and navigate to: `http://localhost/Classroom-Reservation/`
 
 ### Default Login Credentials
 | Role | Username | Password |
@@ -224,11 +120,17 @@ http://localhost/Classroom-Reservation/
 
 > ⚠️ **Security Note**: Change default passwords immediately in production!
 
-## 🗃️ Database Schema
+## Database Schema
 
-### Core Tables
+### Collections (Tables)
+- `users`: User accounts with role-based access
+- `departments`: Department information and hierarchy
+- `reservations`: Classroom reservation requests and approvals
+- `room_assignments`: Direct room assignments by administrators
 
-#### **users**
+### Key Tables
+
+#### users
 ```sql
 - id (INT, PK, AUTO_INCREMENT)
 - username (VARCHAR, UNIQUE)
